@@ -1,39 +1,39 @@
-import React, { useState } from 'react';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
+import { DayOfWeek, TaskItem, useHabitState } from "@/hooks/use-habit-state";
+import { useTheme } from "@/hooks/use-theme";
+import React, { useState } from "react";
 import {
+  Alert,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
-  View,
-  Pressable,
-  Platform,
   TextInput,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { useHabitState, DayOfWeek, TaskItem, calculateGradeAndReward } from '@/hooks/use-habit-state';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // Map icons to tasks for rich visual feedback
 const TASK_ICONS: { [key: string]: string } = {
-  bed_making: '🛏️',
-  shoes_tidying: '👟',
-  clothes_organizing: '👕',
-  dish_prep: '🍽️',
-  bathroom_drying: '🚿',
-  trash_emptying: '♻️',
-  emotion_control: '😇',
-  greeting_politely: '🙇',
-  sleep_early: '😴',
+  bed_making: "🛏️",
+  shoes_tidying: "👟",
+  clothes_organizing: "👕",
+  dish_prep: "🍽️",
+  bathroom_drying: "🚿",
+  trash_emptying: "♻️",
+  emotion_control: "😇",
+  greeting_politely: "🙇",
+  sleep_early: "😴",
 };
 
 const CATEGORY_COLORS: { [key: string]: string } = {
-  생활: '#3B82F6', // Blue
-  가사: '#10B981', // Green
-  태도: '#F59E0B', // Amber
-  건강: '#8B5CF6', // Purple
-  특별: '#EC4899', // Pink
+  생활: "#3B82F6", // Blue
+  가사: "#10B981", // Green
+  태도: "#F59E0B", // Amber
+  건강: "#8B5CF6", // Purple
+  특별: "#EC4899", // Pink
 };
 
 export default function HabitChecklistScreen() {
@@ -53,8 +53,8 @@ export default function HabitChecklistScreen() {
     deleteSpecialTask,
   } = useHabitState();
 
-  const [specialTaskName, setSpecialTaskName] = useState('');
-  const [activeDay, setActiveDay] = useState<DayOfWeek>('월');
+  const [specialTaskName, setSpecialTaskName] = useState("");
+  const [activeDay, setActiveDay] = useState<DayOfWeek>("월");
 
   // Sync active day with simulated day when it changes
   React.useEffect(() => {
@@ -66,20 +66,23 @@ export default function HabitChecklistScreen() {
   if (isLoading || !childViewWeek) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <ThemedText style={styles.loadingText}>데이터를 불러오는 중입니다... ⏳</ThemedText>
+        <ThemedText style={styles.loadingText}>
+          데이터를 불러오는 중입니다... ⏳
+        </ThemedText>
       </ThemedView>
     );
   }
 
-  const days: DayOfWeek[] = ['월', '화', '수', '목', '금', '토', '일'];
+  const days: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
   const tasksForSelectedDay = childViewWeek.days[activeDay] || [];
 
   const showReadOnlyAlert = () => {
-    const message = '주간 정산이 완료되어 더 이상 수정할 수 없어요. 최종 결과만 확인할 수 있습니다! 🔒';
-    if (Platform.OS === 'web') {
+    const message =
+      "주간 정산이 완료되어 더 이상 수정할 수 없어요. 최종 결과만 확인할 수 있습니다! 🔒";
+    if (Platform.OS === "web") {
       alert(message);
     } else {
-      Alert.alert('정산 완료 🔒', message);
+      Alert.alert("정산 완료 🔒", message);
     }
   };
 
@@ -88,40 +91,43 @@ export default function HabitChecklistScreen() {
       showReadOnlyAlert();
       return;
     }
-    if (task.status === 'unchecked' || task.status === 'rejected') {
+    if (task.status === "unchecked" || task.status === "rejected") {
       checkTask(activeDay, task.id);
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         // Simple notification style on web
       } else {
         // Native feedback
       }
-    } else if (task.status === 'pending') {
+    } else if (task.status === "pending") {
       // Toggle back to unchecked
       uncheckTask(activeDay, task.id);
-    } else if (task.status === 'approved') {
+    } else if (task.status === "approved") {
       // Cannot uncheck approved tasks
-      if (Platform.OS === 'web') {
-        alert('부모님이 이미 승인하신 항목은 변경할 수 없어요! 🔒');
+      if (Platform.OS === "web") {
+        alert("부모님이 이미 승인하신 항목은 변경할 수 없어요! 🔒");
       } else {
-        Alert.alert('변경 불가 🔒', '부모님이 이미 승인하신 항목은 변경할 수 없어요!');
+        Alert.alert(
+          "변경 불가 🔒",
+          "부모님이 이미 승인하신 항목은 변경할 수 없어요!",
+        );
       }
     }
   };
 
   // Group tasks by category
   const categories: { [key: string]: TaskItem[] } = {
-    '생활': [],
-    '가사': [],
-    '태도': [],
-    '건강': [],
-    '특별': [],
+    생활: [],
+    가사: [],
+    태도: [],
+    건강: [],
+    특별: [],
   };
 
-  tasksForSelectedDay.forEach(task => {
+  tasksForSelectedDay.forEach((task) => {
     if (categories[task.category]) {
       categories[task.category].push(task);
     } else {
-      categories['특별'].push(task);
+      categories["특별"].push(task);
     }
   });
 
@@ -131,28 +137,31 @@ export default function HabitChecklistScreen() {
       return;
     }
     if (!specialTaskName.trim()) {
-      if (Platform.OS === 'web') {
-        alert('퀘스트 내용을 입력해 주세요!');
+      if (Platform.OS === "web") {
+        alert("퀘스트 내용을 입력해 주세요!");
       } else {
-        Alert.alert('입력 오류', '퀘스트 내용을 입력해 주세요!');
+        Alert.alert("입력 오류", "퀘스트 내용을 입력해 주세요!");
       }
       return;
     }
     addSpecialTask(activeDay, specialTaskName);
-    setSpecialTaskName('');
+    setSpecialTaskName("");
   };
 
   // Calculate day completion percentage
   const totalTasksCount = tasksForSelectedDay.length;
-  const completedTasksCount = tasksForSelectedDay.filter(t => t.status === 'approved' || t.status === 'pending').length;
-  const progressPercent = totalTasksCount > 0 ? (completedTasksCount / totalTasksCount) * 100 : 0;
+  const completedTasksCount = tasksForSelectedDay.filter(
+    (t) => t.status === "approved" || t.status === "pending",
+  ).length;
+  const progressPercent =
+    totalTasksCount > 0 ? (completedTasksCount / totalTasksCount) * 100 : 0;
 
   // Grade progress bar logic (Max is 185 for S grade)
   const scoreProgressPercent = Math.min((childScore / 185) * 100, 100);
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -160,14 +169,24 @@ export default function HabitChecklistScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View>
-              <ThemedText themeColor="textSecondary" style={styles.greetingText}>
-                {isReadOnly ? '이번 주 정산이 완료되었어요! 🎉' : '오늘도 성실하게! 🌱'}
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.greetingText}
+              >
+                {isReadOnly
+                  ? "이번 주 정산이 완료되었어요! 🎉"
+                  : "오늘도 성실하게! 🌱"}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
-                {isReadOnly ? '최종 결과 확인 🔒' : '나의 습관 기록장 📝'}
+                {isReadOnly ? "최종 결과 확인 🔒" : "Jiwoo~ 습관 기록장 📝"}
               </ThemedText>
             </View>
-            <View style={[styles.badgeContainer, { backgroundColor: theme.backgroundElement }]}>
+            <View
+              style={[
+                styles.badgeContainer,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
               <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
               <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
             </View>
@@ -178,48 +197,68 @@ export default function HabitChecklistScreen() {
               <ThemedText style={styles.readOnlyBannerTitle}>
                 주간 정산 완료 — 열람 전용
               </ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.readOnlyBannerText}>
-                {childViewWeek.startDate} ~ {childViewWeek.endDate} 최종 결과입니다.
-                새로운 주가 시작되면 다시 기록할 수 있어요.
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.readOnlyBannerText}
+              >
+                {childViewWeek.startDate} ~ {childViewWeek.endDate} 최종
+                결과입니다. 새로운 주가 시작되면 다시 기록할 수 있어요.
               </ThemedText>
             </ThemedView>
           )}
 
           {/* Weekly Status Reward Card */}
-          <View style={[styles.rewardCard, { shadowColor: '#6366F1' }]}>
+          <View style={[styles.rewardCard, { shadowColor: "#6366F1" }]}>
             <View style={styles.cardDecoration} />
             <View style={styles.cardDecorationSmall} />
 
             <View style={styles.rewardCardHeader}>
               <ThemedText style={styles.rewardLabel}>
-                {isReadOnly ? '확정 등급 & 용돈' : '이번 주 예상 등급 & 용돈'}
+                {isReadOnly ? "확정 등급 & 용돈" : "이번 주 예상 등급 & 용돈"}
               </ThemedText>
               <View style={styles.gradeBadge}>
-                <ThemedText style={styles.gradeBadgeText}>{childGrade} 등급</ThemedText>
+                <ThemedText style={styles.gradeBadgeText}>
+                  {childGrade} 등급
+                </ThemedText>
               </View>
             </View>
 
-            <ThemedText style={styles.rewardAmount}>{childReward.toLocaleString()}원</ThemedText>
+            <ThemedText style={styles.rewardAmount}>
+              {childReward.toLocaleString()}원
+            </ThemedText>
 
             <View style={styles.rewardFooter}>
               <View style={styles.progressTextContainer}>
                 <ThemedText style={styles.progressText}>
                   {childScore >= 185
-                    ? '🎉 최고 등급 달성! 대단해요!'
+                    ? "🎉 최고 등급 달성! 대단해요!"
                     : isReadOnly
                       ? `최종 ${childScore}점으로 ${childGrade} 등급이 확정되었어요!`
                       : `S등급(185점)까지 ${185 - childScore}점 남았어요!`}
                 </ThemedText>
               </View>
-              <View style={[styles.progressBarBg, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-                <View style={[styles.progressBarFill, { width: `${scoreProgressPercent}%`, backgroundColor: '#FFFFFF' }]} />
+              <View
+                style={[
+                  styles.progressBarBg,
+                  { backgroundColor: "rgba(255, 255, 255, 0.2)" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: `${scoreProgressPercent}%`,
+                      backgroundColor: "#FFFFFF",
+                    },
+                  ]}
+                />
               </View>
             </View>
           </View>
 
           {/* Day Selector Segmented Bar */}
           <View style={styles.daySelectorContainer}>
-            {days.map(d => {
+            {days.map((d) => {
               const isActive = activeDay === d;
               const isSimToday = simulatedDay === d;
               return (
@@ -229,8 +268,10 @@ export default function HabitChecklistScreen() {
                   style={[
                     styles.dayChip,
                     {
-                      backgroundColor: isActive ? '#6366F1' : theme.backgroundElement,
-                      borderColor: isSimToday ? '#F59E0B' : 'transparent',
+                      backgroundColor: isActive
+                        ? "#6366F1"
+                        : theme.backgroundElement,
+                      borderColor: isSimToday ? "#F59E0B" : "transparent",
                       borderWidth: isSimToday ? 2 : 0,
                     },
                   ]}
@@ -238,14 +279,12 @@ export default function HabitChecklistScreen() {
                   <ThemedText
                     style={[
                       styles.dayChipText,
-                      { color: isActive ? '#FFFFFF' : theme.text },
+                      { color: isActive ? "#FFFFFF" : theme.text },
                     ]}
                   >
                     {d}
                   </ThemedText>
-                  {isSimToday && (
-                    <View style={styles.todayIndicatorDot} />
-                  )}
+                  {isSimToday && <View style={styles.todayIndicatorDot} />}
                 </Pressable>
               );
             })}
@@ -261,49 +300,67 @@ export default function HabitChecklistScreen() {
                 {completedTasksCount}/{totalTasksCount}개
               </ThemedText>
             </View>
-            <View style={[styles.dailyProgressBarBg, { backgroundColor: theme.backgroundSelected }]}>
+            <View
+              style={[
+                styles.dailyProgressBarBg,
+                { backgroundColor: theme.backgroundSelected },
+              ]}
+            >
               <View
                 style={[
                   styles.dailyProgressBarFill,
-                  { width: `${progressPercent}%`, backgroundColor: '#10B981' },
+                  { width: `${progressPercent}%`, backgroundColor: "#10B981" },
                 ]}
               />
             </View>
           </ThemedView>
 
           {/* Quest Checklist */}
-          {Object.keys(categories).map(categoryName => {
+          {Object.keys(categories).map((categoryName) => {
             const list = categories[categoryName];
             if (list.length === 0) return null;
 
             return (
               <View key={categoryName} style={styles.categorySection}>
                 <View style={styles.categoryHeader}>
-                  <View style={[styles.categoryIndicator, { backgroundColor: CATEGORY_COLORS[categoryName] || '#6366F1' }]} />
-                  <ThemedText style={styles.categoryTitle}>{categoryName} 퀘스트</ThemedText>
+                  <View
+                    style={[
+                      styles.categoryIndicator,
+                      {
+                        backgroundColor:
+                          CATEGORY_COLORS[categoryName] || "#6366F1",
+                      },
+                    ]}
+                  />
+                  <ThemedText style={styles.categoryTitle}>
+                    {categoryName} 퀘스트
+                  </ThemedText>
                 </View>
 
-                <ThemedView type="backgroundElement" style={styles.listContainer}>
+                <ThemedView
+                  type="backgroundElement"
+                  style={styles.listContainer}
+                >
                   {list.map((task, idx) => {
-                    const icon = TASK_ICONS[task.id] || '✨';
+                    const icon = TASK_ICONS[task.id] || "✨";
                     const pointsText = `+${task.points}점`;
-                    
-                    let statusColor: string = theme.textSecondary;
-                    let statusLabel = '';
-                    let statusBg = 'transparent';
 
-                    if (task.status === 'pending') {
-                      statusColor = '#D97706'; // Amber 600
-                      statusLabel = '⏳ 검수 대기';
-                      statusBg = 'rgba(245, 158, 11, 0.15)';
-                    } else if (task.status === 'approved') {
-                      statusColor = '#059669'; // Green 600
-                      statusLabel = '✅ 승인 완료';
-                      statusBg = 'rgba(16, 185, 129, 0.15)';
-                    } else if (task.status === 'rejected') {
-                      statusColor = '#DC2626'; // Red 600
-                      statusLabel = '❌ 반려됨';
-                      statusBg = 'rgba(239, 68, 68, 0.15)';
+                    let statusColor: string = theme.textSecondary;
+                    let statusLabel = "";
+                    let statusBg = "transparent";
+
+                    if (task.status === "pending") {
+                      statusColor = "#D97706"; // Amber 600
+                      statusLabel = "⏳ 검수 대기";
+                      statusBg = "rgba(245, 158, 11, 0.15)";
+                    } else if (task.status === "approved") {
+                      statusColor = "#059669"; // Green 600
+                      statusLabel = "✅ 승인 완료";
+                      statusBg = "rgba(16, 185, 129, 0.15)";
+                    } else if (task.status === "rejected") {
+                      statusColor = "#DC2626"; // Red 600
+                      statusLabel = "❌ 반려됨";
+                      statusBg = "rgba(239, 68, 68, 0.15)";
                     }
 
                     return (
@@ -316,27 +373,52 @@ export default function HabitChecklistScreen() {
                           {
                             borderBottomColor: theme.backgroundSelected,
                             borderBottomWidth: idx === list.length - 1 ? 0 : 1,
-                            opacity: isReadOnly ? 0.85 : pressed && task.status !== 'approved' ? 0.7 : 1,
+                            opacity: isReadOnly
+                              ? 0.85
+                              : pressed && task.status !== "approved"
+                                ? 0.7
+                                : 1,
                           },
                         ]}
                       >
                         {/* Task Icon & Info */}
                         <View style={styles.taskLeft}>
-                          <View style={[styles.taskIconCircle, { backgroundColor: theme.backgroundSelected }]}>
-                            <ThemedText style={styles.taskIconText}>{icon}</ThemedText>
+                          <View
+                            style={[
+                              styles.taskIconCircle,
+                              { backgroundColor: theme.backgroundSelected },
+                            ]}
+                          >
+                            <ThemedText style={styles.taskIconText}>
+                              {icon}
+                            </ThemedText>
                           </View>
                           <View style={styles.taskDetails}>
                             <ThemedText
                               style={[
                                 styles.taskNameText,
-                                task.status === 'approved' && styles.completedText,
+                                task.status === "approved" &&
+                                  styles.completedText,
                               ]}
                             >
                               {task.name}
                             </ThemedText>
                             <View style={styles.badgeRow}>
-                              <View style={[styles.pointsBadge, { backgroundColor: CATEGORY_COLORS[categoryName] + '20' }]}>
-                                <ThemedText style={[styles.pointsBadgeText, { color: CATEGORY_COLORS[categoryName] }]}>
+                              <View
+                                style={[
+                                  styles.pointsBadge,
+                                  {
+                                    backgroundColor:
+                                      CATEGORY_COLORS[categoryName] + "20",
+                                  },
+                                ]}
+                              >
+                                <ThemedText
+                                  style={[
+                                    styles.pointsBadgeText,
+                                    { color: CATEGORY_COLORS[categoryName] },
+                                  ]}
+                                >
                                   {pointsText}
                                 </ThemedText>
                               </View>
@@ -346,44 +428,130 @@ export default function HabitChecklistScreen() {
 
                         {/* Status Capsule Button / Action */}
                         <View style={styles.taskRight}>
-                          {task.status === 'unchecked' && (
-                            <View style={[styles.statusBtn, { backgroundColor: isReadOnly ? theme.backgroundSelected : '#6366F1' }]}>
-                              <ThemedText style={[styles.statusBtnText, { color: isReadOnly ? theme.textSecondary : '#FFFFFF' }]}>
-                                {isReadOnly ? '미완료' : '완료하기'}
+                          {task.status === "unchecked" && (
+                            <View
+                              style={[
+                                styles.statusBtn,
+                                {
+                                  backgroundColor: isReadOnly
+                                    ? theme.backgroundSelected
+                                    : "#6366F1",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.statusBtnText,
+                                  {
+                                    color: isReadOnly
+                                      ? theme.textSecondary
+                                      : "#FFFFFF",
+                                  },
+                                ]}
+                              >
+                                {isReadOnly ? "미완료" : "완료하기"}
                               </ThemedText>
                             </View>
                           )}
-                          {task.status === 'pending' && (
-                            <View style={[styles.statusBtn, { backgroundColor: 'rgba(245, 158, 11, 0.12)', borderWidth: 1, borderColor: '#F59E0B' }]}>
-                              <ThemedText style={[styles.statusBtnText, { color: '#D97706' }]}>⏳ 대기중</ThemedText>
-                            </View>
-                          )}
-                          {task.status === 'approved' && (
-                            <View style={[styles.statusBtn, { backgroundColor: 'rgba(16, 185, 129, 0.12)', borderWidth: 1, borderColor: '#10B981' }]}>
-                              <ThemedText style={[styles.statusBtnText, { color: '#059669' }]}>✅ 승인됨</ThemedText>
-                            </View>
-                          )}
-                          {task.status === 'rejected' && !isReadOnly && (
-                            <View style={[styles.statusBtn, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 1, borderColor: '#EF4444' }]}>
-                              <ThemedText style={[styles.statusBtnText, { color: '#DC2626' }]}>✕ 다시하기</ThemedText>
-                            </View>
-                          )}
-                          {task.status === 'rejected' && isReadOnly && (
-                            <View style={[styles.statusBtn, { backgroundColor: 'rgba(239, 68, 68, 0.12)', borderWidth: 1, borderColor: '#EF4444' }]}>
-                              <ThemedText style={[styles.statusBtnText, { color: '#DC2626' }]}>❌ 반려됨</ThemedText>
-                            </View>
-                          )}
-                          {!isReadOnly && task.category === '특별' && task.status !== 'approved' && (
-                            <Pressable
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                deleteSpecialTask(activeDay, task.id);
-                              }}
-                              style={styles.deleteButton}
+                          {task.status === "pending" && (
+                            <View
+                              style={[
+                                styles.statusBtn,
+                                {
+                                  backgroundColor: "rgba(245, 158, 11, 0.12)",
+                                  borderWidth: 1,
+                                  borderColor: "#F59E0B",
+                                },
+                              ]}
                             >
-                              <ThemedText style={styles.deleteEmoji}>🗑️</ThemedText>
-                            </Pressable>
+                              <ThemedText
+                                style={[
+                                  styles.statusBtnText,
+                                  { color: "#D97706" },
+                                ]}
+                              >
+                                ⏳ 대기중
+                              </ThemedText>
+                            </View>
                           )}
+                          {task.status === "approved" && (
+                            <View
+                              style={[
+                                styles.statusBtn,
+                                {
+                                  backgroundColor: "rgba(16, 185, 129, 0.12)",
+                                  borderWidth: 1,
+                                  borderColor: "#10B981",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.statusBtnText,
+                                  { color: "#059669" },
+                                ]}
+                              >
+                                ✅ 승인됨
+                              </ThemedText>
+                            </View>
+                          )}
+                          {task.status === "rejected" && !isReadOnly && (
+                            <View
+                              style={[
+                                styles.statusBtn,
+                                {
+                                  backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                  borderWidth: 1,
+                                  borderColor: "#EF4444",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.statusBtnText,
+                                  { color: "#DC2626" },
+                                ]}
+                              >
+                                ✕ 다시하기
+                              </ThemedText>
+                            </View>
+                          )}
+                          {task.status === "rejected" && isReadOnly && (
+                            <View
+                              style={[
+                                styles.statusBtn,
+                                {
+                                  backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                  borderWidth: 1,
+                                  borderColor: "#EF4444",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.statusBtnText,
+                                  { color: "#DC2626" },
+                                ]}
+                              >
+                                ❌ 반려됨
+                              </ThemedText>
+                            </View>
+                          )}
+                          {!isReadOnly &&
+                            task.category === "특별" &&
+                            task.status !== "approved" && (
+                              <Pressable
+                                onPress={(e) => {
+                                  e.stopPropagation();
+                                  deleteSpecialTask(activeDay, task.id);
+                                }}
+                                style={styles.deleteButton}
+                              >
+                                <ThemedText style={styles.deleteEmoji}>
+                                  🗑️
+                                </ThemedText>
+                              </Pressable>
+                            )}
                         </View>
                       </Pressable>
                     );
@@ -395,42 +563,58 @@ export default function HabitChecklistScreen() {
 
           {/* Propose Special Quest Card */}
           {!isReadOnly && (
-          <View style={styles.categorySection}>
-            <View style={styles.categoryHeader}>
-              <View style={[styles.categoryIndicator, { backgroundColor: CATEGORY_COLORS.특별 }]} />
-              <ThemedText style={styles.categoryTitle}>특별 퀘스트 직접 제안하기</ThemedText>
-            </View>
-            <ThemedView type="backgroundElement" style={styles.specialInputCard}>
-              <ThemedText themeColor="textSecondary" style={styles.specialInputSub}>
-                스스로 세운 목표(운동, 독서 등)를 제안하면 승인 시 2점을 얻어요!
-              </ThemedText>
-              <View style={styles.specialInputContainer}>
-                <TextInput
-                  placeholder="예: 책 읽기 30분, 홈트레이닝 하기"
-                  placeholderTextColor={theme.textSecondary}
-                  value={specialTaskName}
-                  onChangeText={setSpecialTaskName}
+            <View style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <View
                   style={[
-                    styles.textInput,
-                    {
-                      color: theme.text,
-                      backgroundColor: theme.backgroundSelected,
-                      borderColor: theme.backgroundSelected,
-                    },
+                    styles.categoryIndicator,
+                    { backgroundColor: CATEGORY_COLORS.특별 },
                   ]}
                 />
-                <Pressable
-                  onPress={handleAddSpecial}
-                  style={({ pressed }) => [
-                    styles.specialAddButton,
-                    { opacity: pressed ? 0.8 : 1 },
-                  ]}
-                >
-                  <ThemedText style={styles.specialAddButtonText}>제출</ThemedText>
-                </Pressable>
+                <ThemedText style={styles.categoryTitle}>
+                  특별 퀘스트 직접 제안하기
+                </ThemedText>
               </View>
-            </ThemedView>
-          </View>
+              <ThemedView
+                type="backgroundElement"
+                style={styles.specialInputCard}
+              >
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.specialInputSub}
+                >
+                  스스로 세운 목표(운동, 독서 등)를 제안하면 승인 시 2점을
+                  얻어요!
+                </ThemedText>
+                <View style={styles.specialInputContainer}>
+                  <TextInput
+                    placeholder="예: 책 읽기 30분, 홈트레이닝 하기"
+                    placeholderTextColor={theme.textSecondary}
+                    value={specialTaskName}
+                    onChangeText={setSpecialTaskName}
+                    style={[
+                      styles.textInput,
+                      {
+                        color: theme.text,
+                        backgroundColor: theme.backgroundSelected,
+                        borderColor: theme.backgroundSelected,
+                      },
+                    ]}
+                  />
+                  <Pressable
+                    onPress={handleAddSpecial}
+                    style={({ pressed }) => [
+                      styles.specialAddButton,
+                      { opacity: pressed ? 0.8 : 1 },
+                    ]}
+                  >
+                    <ThemedText style={styles.specialAddButtonText}>
+                      제출
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </ThemedView>
+            </View>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -441,22 +625,22 @@ export default function HabitChecklistScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    justifyContent: "center",
+    flexDirection: "row",
   },
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
-    width: '100%',
+    width: "100%",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   scrollContent: {
     paddingHorizontal: Spacing.four,
@@ -464,29 +648,29 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.five,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: Spacing.three,
   },
   greetingText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   profileName: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 30,
     marginTop: 2,
   },
   badgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   badgeEmoji: {
     fontSize: 14,
@@ -494,10 +678,10 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   rewardCard: {
-    backgroundColor: '#6366F1', // Indigo 500
+    backgroundColor: "#6366F1", // Indigo 500
     borderRadius: 24,
     padding: Spacing.four,
     shadowOffset: { width: 0, height: 8 },
@@ -505,80 +689,80 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
     marginVertical: Spacing.two,
-    position: 'relative',
-    overflow: 'hidden',
+    position: "relative",
+    overflow: "hidden",
     height: 180,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   cardDecoration: {
-    position: 'absolute',
+    position: "absolute",
     top: -50,
     right: -50,
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   cardDecorationSmall: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -30,
     left: -20,
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   rewardCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   rewardLabel: {
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: "rgba(255, 255, 255, 0.85)",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   gradeBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   gradeBadgeText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   rewardAmount: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 38,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: -0.5,
   },
   rewardFooter: {
     gap: Spacing.two,
   },
   progressTextContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   progressText: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: "rgba(255, 255, 255, 0.9)",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   progressBarBg: {
     height: 8,
     borderRadius: 4,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressBarFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 4,
   },
   daySelectorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: Spacing.one,
     marginVertical: Spacing.three,
   },
@@ -586,12 +770,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.two + 2,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.03,
         shadowRadius: 4,
@@ -603,15 +787,15 @@ const styles = StyleSheet.create({
   },
   dayChipText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   todayIndicatorDot: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 4,
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#F59E0B',
+    backgroundColor: "#F59E0B",
   },
   dailyProgressCard: {
     borderRadius: 20,
@@ -619,7 +803,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.four,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 6,
@@ -630,35 +814,35 @@ const styles = StyleSheet.create({
     }),
   },
   dailyProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.two,
   },
   dailyProgressTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   dailyProgressRatio: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#10B981',
+    fontWeight: "700",
+    color: "#10B981",
   },
   dailyProgressBarBg: {
     height: 6,
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   dailyProgressBarFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 3,
   },
   categorySection: {
     marginBottom: Spacing.four,
   },
   categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: Spacing.two,
   },
   categoryIndicator: {
@@ -669,14 +853,14 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   listContainer: {
     borderRadius: 20,
     paddingHorizontal: Spacing.three,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.03,
         shadowRadius: 8,
@@ -687,14 +871,14 @@ const styles = StyleSheet.create({
     }),
   },
   taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: Spacing.three,
   },
   taskLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
     marginRight: Spacing.two,
   },
@@ -702,8 +886,8 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 10,
   },
   taskIconText: {
@@ -715,14 +899,14 @@ const styles = StyleSheet.create({
   },
   taskNameText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   completedText: {
-    textDecorationLine: 'line-through',
+    textDecorationLine: "line-through",
     opacity: 0.6,
   },
   badgeRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
   },
   pointsBadge: {
@@ -732,7 +916,7 @@ const styles = StyleSheet.create({
   },
   pointsBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -741,11 +925,11 @@ const styles = StyleSheet.create({
   },
   statusBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   taskRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   checkboxOutline: {
@@ -758,27 +942,27 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxChecked: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxRejected: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkboxEmoji: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   deleteButton: {
     padding: 4,
@@ -791,7 +975,7 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.03,
         shadowRadius: 8,
@@ -803,11 +987,11 @@ const styles = StyleSheet.create({
   },
   specialInputSub: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: Spacing.two,
   },
   specialInputContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.two,
   },
   textInput: {
@@ -816,19 +1000,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     borderWidth: 1,
   },
   specialAddButton: {
-    backgroundColor: '#6366F1',
+    backgroundColor: "#6366F1",
     borderRadius: 12,
     paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   specialAddButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
