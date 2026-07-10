@@ -1,180 +1,989 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
+import { DayOfWeek, useHabitState } from "@/hooks/use-habit-state";
+import { useTheme } from "@/hooks/use-theme";
+import { useMemo } from "react";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+const DAYS_OF_WEEK: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
+const GRADE_TIERS = [
+  { name: "C", minScore: 0, reward: 10000, color: "#94A3B8" },
+  { name: "B", minScore: 120, reward: 11000, color: "#3B82F6" },
+  { name: "A", minScore: 140, reward: 12000, color: "#8B5CF6" },
+  { name: "A+", minScore: 160, reward: 14000, color: "#EC4899" },
+  { name: "S", minScore: 185, reward: 20000, color: "#10B981" },
+];
+
+export default function ParentAdminScreen() {
   const theme = useTheme();
+  const {
+    currentWeek,
+    history,
+    simulatedDay,
+    isLoading,
+    currentScore,
+    currentGrade,
+    currentReward,
+    setSimulatedDay,
+    approveTask,
+    rejectTask,
+    updateMultipleTasks,
+    forceWeeklyReset,
+    clearAllData,
+    getPendingTasks,
+  } = useHabitState();
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  const pendingInbox = useMemo(() => getPendingTasks(), [currentWeek]);
+
+  if (isLoading || !currentWeek) {
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ThemedText style={styles.loadingText}>
+          데이터를 불러오는 중입니다... ⏳
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  const handleApproveAll = async () => {
+    if (pendingInbox.length === 0) return;
+
+    // Batch update all tasks at once instead of individual updates
+    const updates = pendingInbox.map(({ day, task }) => ({
+      day,
+      taskId: task.id,
+      status: "approved" as const,
+    }));
+
+    await updateMultipleTasks(updates);
+
+    if (Platform.OS === "web") {
+      alert(`총 ${pendingInbox.length}개의 항목을 모두 승인했습니다! 🎉`);
+    } else {
+      Alert.alert(
+        "일괄 승인 완료",
+        `총 ${pendingInbox.length}개의 항목을 모두 승인했습니다!`,
+      );
+    }
+  };
+
+  const handleResetSimulation = () => {
+    const runReset = () => {
+      forceWeeklyReset();
+      if (Platform.OS === "web") {
+        alert(
+          "주간 정산이 완료되었습니다! 기록이 아카이브에 저장되고 다음 주로 리셋되었습니다. 💰",
+        );
+      } else {
+        Alert.alert(
+          "정산 완료 💰",
+          "기록이 저장되고 새 주차로 초기화되었습니다.",
+        );
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          "현재 점수로 주간 정산을 강제 완료하시겠습니까? 이번 주 기록은 보관함으로 이동합니다.",
+        )
+      ) {
+        runReset();
+      }
+    } else {
+      Alert.alert(
+        "주간 정산 시뮬레이션",
+        "현재 점수로 정산을 완료하고 새 주차로 리셋하시겠습니까?",
+        [
+          { text: "취소", style: "cancel" },
+          { text: "정산하기", onPress: runReset },
+        ],
+      );
+    }
+  };
+
+  const handleClearAll = () => {
+    const runClear = () => {
+      clearAllData();
+      if (Platform.OS === "web") {
+        alert("모든 데이터가 초기화되었습니다.");
+      } else {
+        Alert.alert("초기화 완료", "모든 데이터가 초기화되었습니다.");
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          "전체 데이터(습관 체크 및 정산 이력)를 영구 삭제하고 초기화하시겠습니까?",
+        )
+      ) {
+        runClear();
+      }
+    } else {
+      Alert.alert(
+        "전체 데이터 초기화",
+        "모든 데이터가 삭제됩니다. 계속하시겠습니까?",
+        [
+          { text: "취소", style: "cancel" },
+          { text: "초기화", style: "destructive", onPress: runClear },
+        ],
+      );
+    }
+  };
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
-
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
-
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.greetingText}
+              >
+                신뢰와 지지의 공간 🤝
               </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
+              <ThemedText type="subtitle" style={styles.profileName}>
+                검수 및 용돈 정산소 💰
+              </ThemedText>
+            </View>
+            <View
+              style={[
+                styles.badgeContainer,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <ThemedText style={styles.badgeText}>
+                보관함 {history.length}회
+              </ThemedText>
+            </View>
+          </View>
+
+          {/* Pending Approval Inbox */}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <ThemedText style={styles.sectionTitle}>
+                검수 대기 목록
+              </ThemedText>
+              {pendingInbox.length > 0 && (
+                <View style={styles.countBadge}>
+                  <ThemedText style={styles.countBadgeText}>
+                    {pendingInbox.length}
+                  </ThemedText>
+                </View>
+              )}
+            </View>
+            {pendingInbox.length > 0 && (
+              <Pressable
+                onPress={handleApproveAll}
+                style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
+              >
+                <ThemedText style={styles.approveAllText}>모두 승인</ThemedText>
+              </Pressable>
+            )}
+          </View>
+
+          {pendingInbox.length === 0 ? (
+            <ThemedView type="backgroundElement" style={styles.emptyInbox}>
+              <ThemedText style={styles.emptyEmoji}>☕</ThemedText>
+              <ThemedText style={styles.emptyText}>
+                검수 대기 중인 습관이 없습니다!
+              </ThemedText>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.emptySubText}
+              >
+                아이가 완료 버튼을 누르면 여기에 나타납니다.
+              </ThemedText>
             </ThemedView>
-          </Collapsible>
+          ) : (
+            <View style={styles.inboxList}>
+              {pendingInbox.map(({ day, task }) => (
+                <ThemedView
+                  key={`${day}_${task.id}`}
+                  type="backgroundElement"
+                  style={styles.inboxCard}
+                >
+                  <View style={styles.inboxCardLeft}>
+                    <View style={styles.inboxDayBadge}>
+                      <ThemedText style={styles.inboxDayText}>
+                        {day}요일
+                      </ThemedText>
+                    </View>
+                    <View style={styles.inboxTaskInfo}>
+                      <ThemedText style={styles.inboxTaskName}>
+                        {task.name}
+                      </ThemedText>
+                      <ThemedText
+                        themeColor="textSecondary"
+                        style={styles.inboxTaskSub}
+                      >
+                        {task.category} • +{task.points}점
+                      </ThemedText>
+                    </View>
+                  </View>
+                  <View style={styles.inboxActions}>
+                    <Pressable
+                      onPress={() => rejectTask(day, task.id)}
+                      style={({ pressed }) => [
+                        styles.actionBtn,
+                        styles.rejectBtn,
+                        { opacity: pressed ? 0.7 : 1 },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.actionBtnText, { color: "#EF4444" }]}
+                      >
+                        반려
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => approveTask(day, task.id)}
+                      style={({ pressed }) => [
+                        styles.actionBtn,
+                        styles.approveBtn,
+                        { opacity: pressed ? 0.7 : 1 },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.actionBtnText, { color: "#FFFFFF" }]}
+                      >
+                        승인
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </ThemedView>
+              ))}
+            </View>
+          )}
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
+          {/* Weekly Grade Dashboard */}
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>
+              이번 주 등급 보상 현황
             </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+            <ThemedText themeColor="textSecondary" style={styles.periodText}>
+              ({currentWeek.startDate} ~ {currentWeek.endDate})
+            </ThemedText>
+          </View>
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <ThemedView type="backgroundElement" style={styles.dashboardCard}>
+            <View style={styles.dashboardScoreRow}>
+              <View>
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.dashboardLabel}
+                >
+                  승인된 점수 합계
+                </ThemedText>
+                <ThemedText style={styles.dashboardScore}>
+                  {currentScore}점
+                </ThemedText>
+              </View>
+              <View
+                style={[
+                  styles.dashboardRewardBadge,
+                  {
+                    backgroundColor:
+                      GRADE_TIERS.find((t) => t.name === currentGrade)?.color +
+                      "15",
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.dashboardRewardAmount,
+                    {
+                      color: GRADE_TIERS.find((t) => t.name === currentGrade)
+                        ?.color,
+                    },
+                  ]}
+                >
+                  {currentReward.toLocaleString()}원 지급
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.dashboardGradeText,
+                    {
+                      color: GRADE_TIERS.find((t) => t.name === currentGrade)
+                        ?.color,
+                    },
+                  ]}
+                >
+                  {currentGrade} 등급
+                </ThemedText>
+              </View>
+            </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
+            {/* Visual Grade Tiers */}
+            <View style={styles.tiersContainer}>
+              {GRADE_TIERS.map((tier, index) => {
+                const isCurrent = currentGrade === tier.name;
+                return (
+                  <View key={tier.name} style={styles.tierPillContainer}>
+                    <View
+                      style={[
+                        styles.tierPill,
+                        {
+                          backgroundColor: isCurrent
+                            ? tier.color
+                            : theme.backgroundSelected,
+                        },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.tierPillText,
+                          {
+                            color: isCurrent ? "#FFFFFF" : theme.textSecondary,
+                          },
+                        ]}
+                      >
+                        {tier.name}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.tierPoints}>
+                      {tier.minScore}점+
+                    </ThemedText>
+                    <ThemedText
+                      themeColor="textSecondary"
+                      style={styles.tierReward}
+                    >
+                      {(tier.reward / 1000).toFixed(1)}만
+                    </ThemedText>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View
+              style={[
+                styles.progressBarBg,
+                { backgroundColor: theme.backgroundSelected },
+              ]}
+            >
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${Math.min((currentScore / 185) * 100, 100)}%`,
+                    backgroundColor:
+                      GRADE_TIERS.find((t) => t.name === currentGrade)?.color ||
+                      "#6366F1",
+                  },
+                ]}
+              />
+            </View>
+            <ThemedText
+              themeColor="textSecondary"
+              style={styles.dashboardFooterText}
+            >
+              * 아이가 정해진 습관을 수행하고 부모가 승인한 점수만 실시간
+              합산됩니다.
             </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+          </ThemedView>
+
+          {/* History Archive */}
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>
+              지난 정산 내역 보관함
+            </ThemedText>
+          </View>
+
+          {history.length === 0 ? (
+            <ThemedView type="backgroundElement" style={styles.emptyHistory}>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.emptyHistoryText}
+              >
+                아직 정산 이력이 없습니다. 일요일 자정이 지나 정산되면 여기에
+                기록됩니다.
+              </ThemedText>
+            </ThemedView>
+          ) : (
+            <ThemedView type="backgroundElement" style={styles.historyList}>
+              {history.map((item, idx) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.historyRow,
+                    {
+                      borderBottomColor: theme.backgroundSelected,
+                      borderBottomWidth: idx === history.length - 1 ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.historyLeft}>
+                    <ThemedText style={styles.historyWeekId}>
+                      {item.id.replace("-W", "년 ")}주차
+                    </ThemedText>
+                    <ThemedText
+                      themeColor="textSecondary"
+                      style={styles.historyDates}
+                    >
+                      {item.startDate.substring(5)} ~{" "}
+                      {item.endDate.substring(5)}
+                    </ThemedText>
+                  </View>
+                  <View style={styles.historyCenter}>
+                    <View
+                      style={[
+                        styles.historyGradeBadge,
+                        {
+                          backgroundColor: GRADE_TIERS.find(
+                            (t) => t.name === item.grade,
+                          )?.color,
+                        },
+                      ]}
+                    >
+                      <ThemedText style={styles.historyGradeText}>
+                        {item.grade}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.historyScoreText}>
+                      {item.score}점 ({item.approvedCount}개 승인)
+                    </ThemedText>
+                  </View>
+                  <View style={styles.historyRight}>
+                    <ThemedText style={styles.historyAmount}>
+                      {item.reward.toLocaleString()}원
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </ThemedView>
+          )}
+
+          {/* Simulation & Test Center */}
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>
+              테스트 및 시뮬레이션 센터 (남편용)
+            </ThemedText>
+          </View>
+
+          <ThemedView type="backgroundElement" style={styles.sandboxCard}>
+            <ThemedText style={styles.sandboxTitle}>
+              ⚙️ 개발자 / 운영 시뮬레이터
+            </ThemedText>
+            <ThemedText themeColor="textSecondary" style={styles.sandboxSub}>
+              요일별 기록과 일요일 자정 정산 로직이 정상 작동하는지 테스트하기
+              위해 강제로 상태를 조작할 수 있습니다.
+            </ThemedText>
+
+            {/* Today simulation selection */}
+            <ThemedText style={styles.sandboxLabel}>
+              1. 가상 오늘 요일 설정
+            </ThemedText>
+            <View style={styles.sandboxDayPicker}>
+              {DAYS_OF_WEEK.map((d) => {
+                const isActive = simulatedDay === d;
+                return (
+                  <Pressable
+                    key={d}
+                    onPress={() => setSimulatedDay(d)}
+                    style={[
+                      styles.sandboxDayChip,
+                      {
+                        backgroundColor: isActive
+                          ? "#F59E0B"
+                          : theme.backgroundSelected,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.sandboxDayChipText,
+                        { color: isActive ? "#FFFFFF" : theme.text },
+                      ]}
+                    >
+                      {d}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Force Reset Action */}
+            <ThemedText style={styles.sandboxLabel}>
+              2. 정산 로직 실행
+            </ThemedText>
+            <View style={styles.sandboxActionRow}>
+              <Pressable
+                onPress={handleResetSimulation}
+                style={({ pressed }) => [
+                  styles.sandboxBtn,
+                  styles.primarySandboxBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.sandboxBtnText}>
+                  강제 주간 정산 (Archive & Reset)
+                </ThemedText>
+              </Pressable>
+
+              <Pressable
+                onPress={handleClearAll}
+                style={({ pressed }) => [
+                  styles.sandboxBtn,
+                  styles.dangerSandboxBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.sandboxBtnText, { color: "#EF4444" }]}
+                >
+                  전체 데이터 초기화
+                </ThemedText>
+              </Pressable>
+            </View>
+          </ThemedView>
+        </ScrollView>
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
   container: {
+    flex: 1,
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  safeArea: {
+    flex: 1,
     maxWidth: MaxContentWidth,
-    flexGrow: 1,
+    width: "100%",
   },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  centerText: {
-    textAlign: 'center',
+  loadingText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
+  scrollContent: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
+    paddingBottom: BottomTabInset + Spacing.five,
   },
-  collapsibleContent: {
-    alignItems: 'center',
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: Spacing.three,
   },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+  greetingText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  profileName: {
+    fontSize: 24,
+    fontWeight: "800",
+    lineHeight: 30,
+    marginTop: 2,
+  },
+  badgeContainer: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: Spacing.five,
+    marginBottom: Spacing.two,
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  periodText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  countBadge: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  countBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  approveAllText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#6366F1",
+  },
+  emptyInbox: {
+    borderRadius: 20,
+    paddingVertical: Spacing.five,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.03)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  emptyEmoji: {
+    fontSize: 28,
+    marginBottom: Spacing.two,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  emptySubText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  inboxList: {
+    gap: Spacing.two,
+  },
+  inboxCard: {
+    borderRadius: 20,
+    padding: Spacing.three,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  inboxCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: Spacing.two,
+  },
+  inboxDayBadge: {
+    backgroundColor: "#F59E0B20",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  inboxDayText: {
+    color: "#F59E0B",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  inboxTaskInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  inboxTaskName: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  inboxTaskSub: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  inboxActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionBtn: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rejectBtn: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  approveBtn: {
+    backgroundColor: "#10B981",
+  },
+  actionBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  dashboardCard: {
+    borderRadius: 24,
+    padding: Spacing.four,
+    gap: Spacing.three,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  dashboardScoreRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.one,
+  },
+  dashboardLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dashboardScore: {
+    fontSize: 36,
+    fontWeight: "900",
+    marginTop: 2,
+  },
+  dashboardRewardBadge: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 16,
+    alignItems: "center",
+    gap: 2,
+  },
+  dashboardRewardAmount: {
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  dashboardGradeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  tiersContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: Spacing.one,
+  },
+  tierPillContainer: {
+    alignItems: "center",
+    gap: 4,
+    flex: 1,
+  },
+  tierPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tierPillText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  tierPoints: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  tierReward: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  progressBarBg: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+    marginTop: Spacing.one,
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  dashboardFooterText: {
+    fontSize: 11,
+    fontWeight: "500",
+    lineHeight: 16,
+    marginTop: Spacing.one,
+  },
+  emptyHistory: {
+    borderRadius: 20,
+    paddingVertical: Spacing.four,
+    paddingHorizontal: Spacing.four,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyHistoryText: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+  historyList: {
+    borderRadius: 20,
+    paddingHorizontal: Spacing.three,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.three,
+  },
+  historyLeft: {
+    flex: 1.2,
+    gap: 2,
+  },
+  historyWeekId: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  historyDates: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  historyCenter: {
+    flex: 1.8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  historyGradeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  historyGradeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  historyScoreText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  historyRight: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  historyAmount: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#6366F1",
+  },
+  sandboxCard: {
+    borderRadius: 20,
+    padding: Spacing.four,
+    gap: Spacing.three,
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.15)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  sandboxTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#D97706",
+  },
+  sandboxSub: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 18,
+  },
+  sandboxLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    marginTop: Spacing.one,
+  },
+  sandboxDayPicker: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  sandboxDayChip: {
+    flex: 1,
+    paddingVertical: Spacing.one + 2,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sandboxDayChipText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sandboxActionRow: {
+    flexDirection: "row",
+    gap: Spacing.two,
+  },
+  sandboxBtn: {
+    flex: 1,
+    paddingVertical: Spacing.three,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primarySandboxBtn: {
+    backgroundColor: "#F59E0B",
+  },
+  dangerSandboxBtn: {
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  sandboxBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });
