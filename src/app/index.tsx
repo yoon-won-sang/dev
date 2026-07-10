@@ -1,6 +1,7 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
+import { useAuth } from "@/hooks/use-auth";
 import { DayOfWeek, TaskItem, useHabitState } from "@/hooks/use-habit-state";
 import { useTheme } from "@/hooks/use-theme";
 import React, { useState } from "react";
@@ -38,6 +39,7 @@ const CATEGORY_COLORS: { [key: string]: string } = {
 
 export default function HabitChecklistScreen() {
   const theme = useTheme();
+  const { logout } = useAuth();
   const {
     childViewWeek,
     simulatedDay,
@@ -93,16 +95,9 @@ export default function HabitChecklistScreen() {
     }
     if (task.status === "unchecked" || task.status === "rejected") {
       checkTask(activeDay, task.id);
-      if (Platform.OS === "web") {
-        // Simple notification style on web
-      } else {
-        // Native feedback
-      }
     } else if (task.status === "pending") {
-      // Toggle back to unchecked
       uncheckTask(activeDay, task.id);
     } else if (task.status === "approved") {
-      // Cannot uncheck approved tasks
       if (Platform.OS === "web") {
         alert("부모님이 이미 승인하신 항목은 변경할 수 없어요! 🔒");
       } else {
@@ -159,6 +154,19 @@ export default function HabitChecklistScreen() {
   // Grade progress bar logic (Max is 185 for S grade)
   const scoreProgressPercent = Math.min((childScore / 185) * 100, 100);
 
+  const handleLogout = () => {
+    if (Platform.OS === "web") {
+      if (window.confirm("로그아웃 하시겠습니까?")) {
+        logout();
+      }
+    } else {
+      Alert.alert("로그아웃", "로그아웃 하시겠습니까?", [
+        { text: "취소", style: "cancel" },
+        { text: "로그아웃", style: "destructive", onPress: logout },
+      ]);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -181,17 +189,27 @@ export default function HabitChecklistScreen() {
                 {isReadOnly ? "최종 결과 확인 🔒" : "Jiwoo~ 습관 기록장 📝"}
               </ThemedText>
             </View>
-            <View
-              style={[
-                styles.badgeContainer,
-                { backgroundColor: theme.backgroundElement },
-              ]}
-            >
-              <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
-              <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
+            <View style={styles.headerRight}>
+              <View
+                style={[
+                  styles.badgeContainer,
+                  { backgroundColor: theme.backgroundElement },
+                ]}
+              >
+                <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
+                <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
+              </View>
+              <Pressable
+                onPress={handleLogout}
+                style={({ pressed }) => [
+                  styles.logoutBtn,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
+              </Pressable>
             </View>
           </View>
-
           {isReadOnly && (
             <ThemedView type="backgroundElement" style={styles.readOnlyBanner}>
               <ThemedText style={styles.readOnlyBannerTitle}>
@@ -345,24 +363,6 @@ export default function HabitChecklistScreen() {
                     const icon = TASK_ICONS[task.id] || "✨";
                     const pointsText = `+${task.points}점`;
 
-                    let statusColor: string = theme.textSecondary;
-                    let statusLabel = "";
-                    let statusBg = "transparent";
-
-                    if (task.status === "pending") {
-                      statusColor = "#D97706"; // Amber 600
-                      statusLabel = "⏳ 검수 대기";
-                      statusBg = "rgba(245, 158, 11, 0.15)";
-                    } else if (task.status === "approved") {
-                      statusColor = "#059669"; // Green 600
-                      statusLabel = "✅ 승인 완료";
-                      statusBg = "rgba(16, 185, 129, 0.15)";
-                    } else if (task.status === "rejected") {
-                      statusColor = "#DC2626"; // Red 600
-                      statusLabel = "❌ 반려됨";
-                      statusBg = "rgba(239, 68, 68, 0.15)";
-                    }
-
                     return (
                       <Pressable
                         key={task.id}
@@ -381,7 +381,6 @@ export default function HabitChecklistScreen() {
                           },
                         ]}
                       >
-                        {/* Task Icon & Info */}
                         <View style={styles.taskLeft}>
                           <View
                             style={[
@@ -426,7 +425,6 @@ export default function HabitChecklistScreen() {
                           </View>
                         </View>
 
-                        {/* Status Capsule Button / Action */}
                         <View style={styles.taskRight}>
                           {task.status === "unchecked" && (
                             <View
@@ -633,18 +631,9 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     width: "100%",
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
   scrollContent: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.six,
     paddingBottom: BottomTabInset + Spacing.five,
   },
   header: {
@@ -652,6 +641,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginVertical: Spacing.three,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
   },
   greetingText: {
     fontSize: 13,
@@ -680,8 +674,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  logoutBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#EF4444",
+  },
+  logoutBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  readOnlyBanner: {
+    borderRadius: 16,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+  },
+  readOnlyBannerTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  readOnlyBannerText: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 18,
+  },
   rewardCard: {
-    backgroundColor: "#6366F1", // Indigo 500
+    backgroundColor: "#6366F1",
     borderRadius: 24,
     padding: Spacing.four,
     shadowOffset: { width: 0, height: 8 },
@@ -870,6 +899,15 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  statusBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  statusBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
   taskRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -931,38 +969,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  checkboxOutline: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-  },
-  checkboxPending: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxRejected: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxEmoji: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "800",
   },
   deleteButton: {
     padding: 4,

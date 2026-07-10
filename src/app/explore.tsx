@@ -1,6 +1,7 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
+import { useAuth } from "@/hooks/use-auth";
 import { DayOfWeek, useHabitState } from "@/hooks/use-habit-state";
 import { useTheme } from "@/hooks/use-theme";
 import { useMemo } from "react";
@@ -26,6 +27,7 @@ const GRADE_TIERS = [
 
 export default function ParentAdminScreen() {
   const theme = useTheme();
+  const { logout } = useAuth();
   const {
     currentWeek,
     history,
@@ -45,6 +47,19 @@ export default function ParentAdminScreen() {
 
   const pendingInbox = useMemo(() => getPendingTasks(), [currentWeek]);
 
+  const handleLogout = () => {
+    if (Platform.OS === "web") {
+      if (window.confirm("로그아웃 하시겠습니까?")) {
+        logout();
+      }
+    } else {
+      Alert.alert("로그아웃", "로그아웃 하시겠습니까?", [
+        { text: "취소", style: "cancel" },
+        { text: "로그아웃", style: "destructive", onPress: logout },
+      ]);
+    }
+  };
+
   if (isLoading || !currentWeek) {
     return (
       <ThemedView style={styles.loadingContainer}>
@@ -58,7 +73,6 @@ export default function ParentAdminScreen() {
   const handleApproveAll = async () => {
     if (pendingInbox.length === 0) return;
 
-    // Batch update all tasks at once instead of individual updates
     const updates = pendingInbox.map(({ day, task }) => ({
       day,
       taskId: task.id,
@@ -162,15 +176,26 @@ export default function ParentAdminScreen() {
                 검수 및 용돈 정산소 💰
               </ThemedText>
             </View>
-            <View
-              style={[
-                styles.badgeContainer,
-                { backgroundColor: theme.backgroundElement },
-              ]}
-            >
-              <ThemedText style={styles.badgeText}>
-                보관함 {history.length}회
-              </ThemedText>
+            <View style={styles.headerRight}>
+              <View
+                style={[
+                  styles.badgeContainer,
+                  { backgroundColor: theme.backgroundElement },
+                ]}
+              >
+                <ThemedText style={styles.badgeText}>
+                  보관함 {history.length}회
+                </ThemedText>
+              </View>
+              <Pressable
+                onPress={handleLogout}
+                style={({ pressed }) => [
+                  styles.logoutBtn,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
+              </Pressable>
             </View>
           </View>
 
@@ -580,7 +605,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    paddingTop: Spacing.six,
     paddingBottom: BottomTabInset + Spacing.five,
   },
   header: {
@@ -588,6 +613,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginVertical: Spacing.three,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
   },
   greetingText: {
     fontSize: 13,
@@ -609,6 +639,17 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 13,
     fontWeight: "700",
+  },
+  logoutBtn: {
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.one,
+    borderRadius: 8,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  logoutBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#EF4444",
   },
   sectionHeader: {
     flexDirection: "row",
