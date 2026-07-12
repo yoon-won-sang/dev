@@ -60,27 +60,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
 
-      if (error || !data.user) {
+      if (error) {
         console.error("Login error:", error);
+        if (error.message.includes("Invalid login credentials")) {
+          alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+        } else if (error.message.includes("Email not confirmed")) {
+          alert(
+            "이메일 확인이 필요합니다. Supabase 대시보드에서 'Confirm email'를 비활성화하세요.",
+          );
+        }
+        return false;
+      }
+
+      if (!data.user) {
         return false;
       }
 
       // Fetch user profile
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", data.user.id)
-        .single();
+        .maybeSingle();
 
-      setUser({
-        id: data.user.id,
-        role: profile?.role || "child",
-        email: data.user.email || undefined,
-      });
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+      }
+
+      // If profile doesn't exist, create it
+      if (!profile) {
+        console.log("Profile not found, creating...");
+        const { error: insertError } = await supabase.from("profiles").insert({
+          id: data.user.id,
+          role: "child",
+          display_name: data.user.email?.split("@")[0] || "사용자",
+        });
+
+        if (insertError) {
+          console.error("Profile creation error:", insertError);
+        }
+
+        setUser({
+          id: data.user.id,
+          role: "child",
+          email: data.user.email || undefined,
+        });
+      } else {
+        setUser({
+          id: data.user.id,
+          role: profile.role,
+          email: data.user.email || undefined,
+        });
+      }
 
       return true;
     } catch (error) {
       console.error("Login error:", error);
+      alert("로그인 중 오류가 발생했습니다.");
       return false;
     }
   };
