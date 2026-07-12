@@ -378,10 +378,12 @@ export function useHabitState() {
   const calculateWeekScore = (
     week: CurrentWeekData | null = currentWeek,
   ): number => {
-    if (!week) return 0;
+    if (!week || !week.days) return 0;
     let total = 0;
     DAYS_OF_WEEK.forEach((day) => {
-      week.days[day].forEach((task) => {
+      const dayTasks = week.days[day];
+      if (!dayTasks) return;
+      dayTasks.forEach((task) => {
         if (task.status === "approved") {
           total += task.approvedPoints ?? task.points;
         } else if (task.status === "partially_approved") {
@@ -395,7 +397,9 @@ export function useHabitState() {
   const getApprovedCount = (week: CurrentWeekData): number => {
     let count = 0;
     DAYS_OF_WEEK.forEach((day) => {
-      count += week.days[day].filter(
+      const dayTasks = week.days[day];
+      if (!dayTasks) return;
+      count += dayTasks.filter(
         (t) => t.status === "approved" || t.status === "partially_approved",
       ).length;
     });
@@ -405,7 +409,9 @@ export function useHabitState() {
   const getTotalCount = (week: CurrentWeekData): number => {
     let count = 0;
     DAYS_OF_WEEK.forEach((day) => {
-      count += week.days[day].length;
+      const dayTasks = week.days[day];
+      if (!dayTasks) return;
+      count += dayTasks.length;
     });
     return count;
   };
@@ -665,10 +671,12 @@ export function useHabitState() {
   };
 
   const getPendingTasks = () => {
-    if (!currentWeek) return [];
+    if (!currentWeek || !currentWeek.days) return [];
     const pendingList: { day: DayOfWeek; task: TaskItem }[] = [];
     DAYS_OF_WEEK.forEach((day) => {
-      currentWeek.days[day].forEach((task) => {
+      const dayTasks = currentWeek.days[day];
+      if (!dayTasks) return;
+      dayTasks.forEach((task) => {
         if (task.status === "pending") {
           pendingList.push({ day, task });
         }
