@@ -27,7 +27,9 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-actual-anon-key
 
 1. Supabase 대시보드 → Authentication → Providers
 2. Email provider 활성화
-3. (선택) Email 확인 비활성화 (테스트용)
+3. **중요**: "Confirm email" 비활성화 (가족 앱용)
+   - 이 설정을 켜면 회원가입 후 이메일 확인 링크를 클릭해야 로그인 가능
+   - 가족 앱에서는 불편하므로 비활성화 권장
 
 ## 5. 첫 사용자 생성
 

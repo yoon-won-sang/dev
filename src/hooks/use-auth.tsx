@@ -107,6 +107,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      // Manually create profile (in case trigger doesn't fire)
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        role,
+        display_name: email.split("@")[0],
+      });
+
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        // Continue anyway - trigger might have created it
+      }
+
       return true;
     } catch (error) {
       console.error("Signup error:", error);
