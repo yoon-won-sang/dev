@@ -192,7 +192,21 @@ export function useHabitState() {
       }
 
       if (weekData) {
-        const parsedWeek = weekData.days as CurrentWeekData;
+        let parsedWeek = weekData.days as CurrentWeekData;
+
+        // Ensure all days exist in the data
+        if (!parsedWeek.days) {
+          parsedWeek.days = createInitialWeekData(new Date()).days;
+        } else {
+          // Fill in any missing days
+          const defaultDays = createInitialWeekData(new Date()).days;
+          DAYS_OF_WEEK.forEach((day) => {
+            if (!parsedWeek.days[day]) {
+              parsedWeek.days[day] = defaultDays[day];
+            }
+          });
+        }
+
         setCurrentWeek(parsedWeek);
 
         // Check if this week is in the past and needs auto-archive
@@ -378,18 +392,23 @@ export function useHabitState() {
   const calculateWeekScore = (
     week: CurrentWeekData | null = currentWeek,
   ): number => {
-    if (!week || !week.days) return 0;
+    if (!week || !week.days || typeof week.days !== "object") return 0;
     let total = 0;
     DAYS_OF_WEEK.forEach((day) => {
-      const dayTasks = week.days[day];
-      if (!dayTasks) return;
-      dayTasks.forEach((task) => {
-        if (task.status === "approved") {
-          total += task.approvedPoints ?? task.points;
-        } else if (task.status === "partially_approved") {
-          total += task.approvedPoints ?? 2;
-        }
-      });
+      try {
+        const dayTasks = week.days[day];
+        if (!dayTasks || !Array.isArray(dayTasks)) return;
+        dayTasks.forEach((task) => {
+          if (task.status === "approved") {
+            total += task.approvedPoints ?? task.points;
+          } else if (task.status === "partially_approved") {
+            total += task.approvedPoints ?? 2;
+          }
+        });
+      } catch (e) {
+        // Skip if day access fails
+        console.warn(`Failed to access day ${day}:`, e);
+      }
     });
     return total;
   };
