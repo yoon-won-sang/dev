@@ -314,9 +314,13 @@ export function useHabitState() {
   useEffect(() => {
     if (!user) return;
 
-    // Remove existing channel if it exists
+    // Remove existing channel if it exists to prevent duplicate subscriptions
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+      try {
+        supabase.removeChannel(channelRef.current);
+      } catch (e) {
+        console.warn("Failed to remove existing channel:", e);
+      }
     }
 
     const channel = supabase
@@ -346,13 +350,18 @@ export function useHabitState() {
           console.log("Archive changed:", payload);
           loadData();
         },
-      );
+      )
+      .subscribe();
 
     channelRef.current = channel;
 
     return () => {
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        try {
+          supabase.removeChannel(channelRef.current);
+        } catch (e) {
+          console.warn("Failed to remove channel on cleanup:", e);
+        }
         channelRef.current = null;
       }
     };
