@@ -314,6 +314,11 @@ export function useHabitState() {
   useEffect(() => {
     if (!user) return;
 
+    // Remove existing channel if it exists
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
     const channel = supabase
       .channel(`user_${user.id}`)
       .on(
@@ -341,13 +346,15 @@ export function useHabitState() {
           console.log("Archive changed:", payload);
           loadData();
         },
-      )
-      .subscribe();
+      );
 
     channelRef.current = channel;
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [user]);
 
