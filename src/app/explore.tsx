@@ -38,9 +38,11 @@ export default function ParentAdminScreen() {
     currentReward,
     setSimulatedDay,
     approveTask,
+    partialApproveTask,
     rejectTask,
     updateMultipleTasks,
     forceWeeklyReset,
+    restoreSettledWeek,
     clearAllData,
     getPendingTasks,
   } = useHabitState();
@@ -77,6 +79,7 @@ export default function ParentAdminScreen() {
       day,
       taskId: task.id,
       status: "approved" as const,
+      approvedPoints: task.points, // Full points for batch approve
     }));
 
     await updateMultipleTasks(updates);
@@ -258,7 +261,7 @@ export default function ParentAdminScreen() {
                         themeColor="textSecondary"
                         style={styles.inboxTaskSub}
                       >
-                        {task.category} • +{task.points}점
+                        {task.category} • 최대 +{task.points}점
                       </ThemedText>
                     </View>
                   </View>
@@ -274,11 +277,39 @@ export default function ParentAdminScreen() {
                       <ThemedText
                         style={[styles.actionBtnText, { color: "#EF4444" }]}
                       >
-                        반려
+                        반려 (0점)
                       </ThemedText>
                     </Pressable>
                     <Pressable
-                      onPress={() => approveTask(day, task.id)}
+                      onPress={() => partialApproveTask(day, task.id, 2)}
+                      style={({ pressed }) => [
+                        styles.actionBtn,
+                        styles.partialBtn,
+                        { opacity: pressed ? 0.7 : 1 },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.actionBtnText, { color: "#D97706" }]}
+                      >
+                        2점 인정
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => partialApproveTask(day, task.id, 3)}
+                      style={({ pressed }) => [
+                        styles.actionBtn,
+                        styles.partialBtn,
+                        { opacity: pressed ? 0.7 : 1 },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.actionBtnText, { color: "#D97706" }]}
+                      >
+                        3점 인정
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => approveTask(day, task.id, task.points)}
                       style={({ pressed }) => [
                         styles.actionBtn,
                         styles.approveBtn,
@@ -288,7 +319,7 @@ export default function ParentAdminScreen() {
                       <ThemedText
                         style={[styles.actionBtnText, { color: "#FFFFFF" }]}
                       >
-                        승인
+                        완벽 ({task.points}점)
                       </ThemedText>
                     </Pressable>
                   </View>
@@ -576,6 +607,54 @@ export default function ParentAdminScreen() {
                 </ThemedText>
               </Pressable>
             </View>
+
+            {/* Restore settled week for re-approval */}
+            <ThemedText style={styles.sandboxLabel}>
+              3. 재정산 (정산 취소 후 재승인)
+            </ThemedText>
+            <Pressable
+              onPress={() => {
+                if (Platform.OS === "web") {
+                  if (
+                    window.confirm(
+                      "정산된 주간을 복원하여 승인을 다시 할 수 있습니다. 현재 주간 데이터는 유지됩니다. 계속하시겠습니까?",
+                    )
+                  ) {
+                    restoreSettledWeek();
+                    alert(
+                      "정산이 취소되었습니다. 승인을 다시 진행해주세요! 🔄",
+                    );
+                  }
+                } else {
+                  Alert.alert(
+                    "재정산",
+                    "정산된 주간을 복원하여 승인을 다시 할 수 있습니다. 현재 주간 데이터는 유지됩니다.",
+                    [
+                      { text: "취소", style: "cancel" },
+                      {
+                        text: "재정산",
+                        onPress: () => {
+                          restoreSettledWeek();
+                          Alert.alert(
+                            "정산 취소 완료",
+                            "승인을 다시 진행해주세요!",
+                          );
+                        },
+                      },
+                    ],
+                  );
+                }
+              }}
+              style={({ pressed }) => [
+                styles.sandboxBtn,
+                styles.restoreSandboxBtn,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <ThemedText style={styles.sandboxBtnText}>
+                정산 취소하고 재승인하기
+              </ThemedText>
+            </Pressable>
           </ThemedView>
         </ScrollView>
       </SafeAreaView>
@@ -783,6 +862,11 @@ const styles = StyleSheet.create({
   },
   rejectBtn: {
     backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  partialBtn: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderWidth: 1,
+    borderColor: "#F59E0B",
   },
   approveBtn: {
     backgroundColor: "#10B981",
@@ -1021,6 +1105,9 @@ const styles = StyleSheet.create({
   },
   dangerSandboxBtn: {
     backgroundColor: "rgba(239, 68, 68, 0.1)",
+  },
+  restoreSandboxBtn: {
+    backgroundColor: "#6366F1",
   },
   sandboxBtnText: {
     color: "#FFFFFF",

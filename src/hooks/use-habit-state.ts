@@ -4,7 +4,12 @@ import { AppState, AppStateStatus, Platform } from "react-native";
 
 export type DayOfWeek = "월" | "화" | "수" | "목" | "금" | "토" | "일";
 export type TaskCategory = "생활" | "가사" | "태도" | "건강" | "특별";
-export type TaskStatus = "unchecked" | "pending" | "approved" | "rejected";
+export type TaskStatus =
+  | "unchecked"
+  | "pending"
+  | "approved"
+  | "partially_approved"
+  | "rejected";
 
 export interface TaskItem {
   id: string;
@@ -14,6 +19,7 @@ export interface TaskItem {
   status: TaskStatus;
   checkedAt?: string;
   approvedAt?: string;
+  approvedPoints?: number; // Actual points awarded (5 for full, 2 or 3 for partial, undefined for rejected)
 }
 
 export interface CurrentWeekData {
@@ -161,6 +167,7 @@ const STORAGE_KEYS = {
   SIMULATED_DAY: "@habit_tracker_simulated_day",
   LAST_SETTLED_WEEK: "@habit_tracker_last_settled_week",
   SETTLED_WEEK_SNAPSHOT: "@habit_tracker_settled_week_snapshot",
+  RESTORED_WEEK_ID: "@habit_tracker_restored_week_id",
 };
 
 function dedupeHistory(history: ArchiveEntry[]): ArchiveEntry[] {
@@ -236,6 +243,11 @@ export function useHabitState() {
         setSimulatedDayState(realDay);
       }
 
+      // Check if this week was restored for re-approval
+      const restoredWeekId = await AsyncStorage.getItem(
+        STORAGE_KEYS.RESTORED_WEEK_ID,
+      );
+
       // Load current week
       const today = new Date();
       const currentRange = getWeekRange(today);
@@ -246,7 +258,10 @@ export function useHabitState() {
 
         // Only auto-archive weeks that are behind the real calendar week.
         // Future weeks (from forceWeeklyReset simulation) should stay as-is.
-        const isPastWeek = parsedWeek.startDate < currentRange.startDate;
+        // Skip auto-archive if this week was restored for re-approval.
+        const isPastWeek =
+          parsedWeek.startDate < currentRange.startDate &&
+          parsedWeek.weekId !== restoredWeekId;
 
         if (isPastWeek) {
           // Archive old week automatically if there was progress
@@ -299,9 +314,18 @@ export function useHabitState() {
         );
       }
 
-      // Child read-only view: keep settled snapshot until the real calendar
-      // reaches the new active week (e.g. after parent forceWeeklyReset).
-      if (snapshot && activeWeek && currentRange.weekId === activeWeek.weekId) {
+      // Child read-only view: keep settled snapshot until explicitly restored.
+      // Only auto-clear when the settled week's own weekId matches the active week
+      // AND there is no LAST_SETTLED_WEEK flag (meaning it wasn't explicitly settled).
+      const lastSettledWeek = await AsyncStorage.getItem(
+        STORAGE_KEYS.LAST_SETTLED_WEEK,
+      );
+      if (
+        snapshot &&
+        activeWeek &&
+        currentRange.weekId === activeWeek.weekId &&
+        !lastSettledWeek
+      ) {
         await AsyncStorage.removeItem(STORAGE_KEYS.SETTLED_WEEK_SNAPSHOT);
         await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SETTLED_WEEK);
         snapshot = null;
@@ -436,7 +460,7 @@ export function useHabitState() {
     await AsyncStorage.setItem(STORAGE_KEYS.SIMULATED_DAY, day);
   };
 
-  // Score Calculations
+  // Score Calculations - counts actual awarded points (approvedPoints if set, else default points)
   const calculateWeekScore = (
     week: CurrentWeekData | null = currentWeek,
   ): number => {
@@ -445,7 +469,10 @@ export function useHabitState() {
     DAYS_OF_WEEK.forEach((day) => {
       week.days[day].forEach((task) => {
         if (task.status === "approved") {
-          total += task.points;
+          // approvedPoints is set by parent: 5 for full, 2 or 3 for partial
+          total += task.approvedPoints ?? task.points;
+        } else if (task.status === "partially_approved") {
+          total += task.approvedPoints ?? 2; // default to 2 if not set
         }
       });
     });
@@ -455,7 +482,9 @@ export function useHabitState() {
   const getApprovedCount = (week: CurrentWeekData): number => {
     let count = 0;
     DAYS_OF_WEEK.forEach((day) => {
-      count += week.days[day].filter((t) => t.status === "approved").length;
+      count += week.days[day].filter(
+        (t) => t.status === "approved" || t.status === "partially_approved",
+      ).length;
     });
     return count;
   };
@@ -510,7 +539,11 @@ export function useHabitState() {
     });
   };
 
-  const approveTask = async (day: DayOfWeek, taskId: string) => {
+  const approveTask = async (
+    day: DayOfWeek,
+    taskId: string,
+    points?: number,
+  ) => {
     if (!currentWeek) return;
     const updatedDays = { ...currentWeek.days };
     updatedDays[day] = updatedDays[day].map((task) => {
@@ -519,6 +552,32 @@ export function useHabitState() {
           ...task,
           status: "approved",
           approvedAt: new Date().toISOString(),
+          approvedPoints: points ?? task.points, // Store actual awarded points
+        };
+      }
+      return task;
+    });
+
+    await saveCurrentWeek({
+      ...currentWeek,
+      days: updatedDays,
+    });
+  };
+
+  const partialApproveTask = async (
+    day: DayOfWeek,
+    taskId: string,
+    points: number, // 2 or 3
+  ) => {
+    if (!currentWeek) return;
+    const updatedDays = { ...currentWeek.days };
+    updatedDays[day] = updatedDays[day].map((task) => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          status: "partially_approved",
+          approvedAt: new Date().toISOString(),
+          approvedPoints: points,
         };
       }
       return task;
@@ -539,6 +598,7 @@ export function useHabitState() {
           ...task,
           status: "rejected",
           approvedAt: undefined,
+          approvedPoints: undefined,
         };
       }
       return task;
@@ -552,7 +612,12 @@ export function useHabitState() {
 
   // Batch approve/reject multiple tasks at once to avoid race conditions
   const updateMultipleTasks = async (
-    updates: Array<{ day: DayOfWeek; taskId: string; status: TaskStatus }>,
+    updates: Array<{
+      day: DayOfWeek;
+      taskId: string;
+      status: TaskStatus;
+      approvedPoints?: number;
+    }>,
   ) => {
     // Reload latest data from storage first
     const latestWeekStr = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_WEEK);
@@ -562,14 +627,16 @@ export function useHabitState() {
     const updatedDays = { ...latestWeek.days };
 
     // Apply all updates in one pass
-    updates.forEach(({ day, taskId, status }) => {
+    updates.forEach(({ day, taskId, status, approvedPoints }) => {
       updatedDays[day] = updatedDays[day].map((task) => {
         if (task.id === taskId) {
           const updatedTask = { ...task, status };
-          if (status === "approved") {
+          if (status === "approved" || status === "partially_approved") {
             (updatedTask as any).approvedAt = new Date().toISOString();
+            (updatedTask as any).approvedPoints = approvedPoints ?? task.points;
           } else if (status === "rejected") {
             (updatedTask as any).approvedAt = undefined;
+            (updatedTask as any).approvedPoints = undefined;
           }
           return updatedTask;
         }
@@ -618,6 +685,9 @@ export function useHabitState() {
   // Simulations
   const forceWeeklyReset = async () => {
     if (!currentWeek) return;
+
+    // Clear any restored week flag since we're settling a new week
+    await AsyncStorage.removeItem(STORAGE_KEYS.RESTORED_WEEK_ID);
 
     // Save the week ID that is being settled
     const settledWeekId = currentWeek.weekId;
@@ -681,6 +751,72 @@ export function useHabitState() {
     setIsReadOnly(false);
   };
 
+  // Restore a settled week back to the current week for re-approval
+  const restoreSettledWeek = async () => {
+    if (!settledWeekSnapshot) return;
+
+    // Remove the last entry from history if it matches the settled week
+    const updatedHistory = history.filter(
+      (entry) => entry.id !== settledWeekSnapshot.weekId,
+    );
+    if (updatedHistory.length !== history.length) {
+      await saveHistory(updatedHistory);
+    }
+
+    // Reset all approved/partially_approved tasks back to pending
+    // so the child can re-check and the parent can re-approve
+    const resetDays: { [key in DayOfWeek]: TaskItem[] } = {
+      월: [],
+      화: [],
+      수: [],
+      목: [],
+      금: [],
+      토: [],
+      일: [],
+    };
+    DAYS_OF_WEEK.forEach((day) => {
+      resetDays[day] = settledWeekSnapshot.days[day].map((task) => {
+        if (
+          task.status === "approved" ||
+          task.status === "partially_approved" ||
+          task.status === "rejected"
+        ) {
+          // Reset to pending so child can re-check, parent re-approve
+          return {
+            ...task,
+            status: "pending" as const,
+            checkedAt: new Date().toISOString(),
+            approvedAt: undefined,
+            approvedPoints: undefined,
+          };
+        }
+        return task;
+      });
+    });
+
+    const restoredWeek: CurrentWeekData = {
+      ...settledWeekSnapshot,
+      days: resetDays,
+    };
+
+    // Restore the reset week as the current week
+    await saveCurrentWeek(restoredWeek);
+
+    // Clear the snapshot and read-only state
+    await AsyncStorage.removeItem(STORAGE_KEYS.SETTLED_WEEK_SNAPSHOT);
+    await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SETTLED_WEEK);
+    setSettledWeekSnapshot(null);
+    setIsReadOnly(false);
+
+    // Mark this week as restored so auto-archive doesn't re-archive it
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.RESTORED_WEEK_ID,
+      settledWeekSnapshot.weekId,
+    );
+
+    notifyOtherTabs();
+  };
+
   // Find all pending tasks across the entire week (for the parent inbox)
   const getPendingTasks = () => {
     if (!currentWeek) return [];
@@ -721,11 +857,13 @@ export function useHabitState() {
     checkTask,
     uncheckTask,
     approveTask,
+    partialApproveTask,
     rejectTask,
     updateMultipleTasks,
     addSpecialTask,
     deleteSpecialTask,
     forceWeeklyReset,
+    restoreSettledWeek,
     clearAllData,
     getPendingTasks,
   };

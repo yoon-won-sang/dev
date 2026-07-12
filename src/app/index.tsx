@@ -98,7 +98,10 @@ export default function HabitChecklistScreen() {
       checkTask(activeDay, task.id);
     } else if (task.status === "pending") {
       uncheckTask(activeDay, task.id);
-    } else if (task.status === "approved") {
+    } else if (
+      task.status === "approved" ||
+      task.status === "partially_approved"
+    ) {
       if (Platform.OS === "web") {
         alert("부모님이 이미 승인하신 항목은 변경할 수 없어요! 🔒");
       } else {
@@ -147,7 +150,10 @@ export default function HabitChecklistScreen() {
   // Calculate day completion percentage
   const totalTasksCount = tasksForSelectedDay.length;
   const completedTasksCount = tasksForSelectedDay.filter(
-    (t) => t.status === "approved" || t.status === "pending",
+    (t) =>
+      t.status === "approved" ||
+      t.status === "partially_approved" ||
+      t.status === "pending",
   ).length;
   const progressPercent =
     totalTasksCount > 0 ? (completedTasksCount / totalTasksCount) * 100 : 0;
@@ -490,7 +496,28 @@ export default function HabitChecklistScreen() {
                                   { color: "#059669" },
                                 ]}
                               >
-                                ✅ 승인됨
+                                ✅ {task.approvedPoints ?? task.points}점 인정
+                              </ThemedText>
+                            </View>
+                          )}
+                          {task.status === "partially_approved" && (
+                            <View
+                              style={[
+                                styles.statusBtn,
+                                {
+                                  backgroundColor: "rgba(245, 158, 11, 0.12)",
+                                  borderWidth: 1,
+                                  borderColor: "#F59E0B",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.statusBtnText,
+                                  { color: "#D97706" },
+                                ]}
+                              >
+                                🟡 {task.approvedPoints ?? 2}점 인정
                               </ThemedText>
                             </View>
                           )}
@@ -536,6 +563,28 @@ export default function HabitChecklistScreen() {
                               </ThemedText>
                             </View>
                           )}
+                          {task.status === "partially_approved" &&
+                            isReadOnly && (
+                              <View
+                                style={[
+                                  styles.statusBtn,
+                                  {
+                                    backgroundColor: "rgba(245, 158, 11, 0.12)",
+                                    borderWidth: 1,
+                                    borderColor: "#F59E0B",
+                                  },
+                                ]}
+                              >
+                                <ThemedText
+                                  style={[
+                                    styles.statusBtnText,
+                                    { color: "#D97706" },
+                                  ]}
+                                >
+                                  🟡 {task.approvedPoints ?? 2}점 인정
+                                </ThemedText>
+                              </View>
+                            )}
                           {!isReadOnly &&
                             task.category === "특별" &&
                             task.status !== "approved" && (
