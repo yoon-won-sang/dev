@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onAuthStateChange, supabase } from "@/lib/supabase";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 export type UserRole = "child" | "parent";
@@ -6,63 +6,121 @@ export type UserRole = "child" | "parent";
 export interface AuthUser {
   id: string;
   role: UserRole;
+  email?: string;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAdmin: boolean;
-  login: (id: string) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (email: string, password: string, role: UserRole) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const STORAGE_KEY = "@habit_tracker_auth_user";
-
-// jiwoo -> 아이(child) 계정, admin -> 부모/관리자(parent) 계정
-const USER_ROLES: Record<string, UserRole> = {
-  jiwoo7942: "child",
-  admin7942: "parent",
-};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          setUser(JSON.parse(stored));
-        }
-      } catch (error) {
-        console.error("Failed to load auth state:", error);
-      } finally {
-        setIsLoading(false);
+    // Listen for auth state changes
+    const {
+      data: { subscription },
+    } = onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Fetch user profile to get role
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, display_name")
+          .eq("id", session.user.id)
+          .single();
+
+        setUser({
+          id: session.user.id,
+          role: profile?.role || "child",
+          email: session.user.email || undefined,
+        });
+      } else {
+        setUser(null);
       }
-    })();
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const login = (rawId: string): boolean => {
-    const id = rawId.trim().toLowerCase();
-    const role = USER_ROLES[id];
-    if (!role) return false;
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    const nextUser: AuthUser = { id, role };
-    setUser(nextUser);
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser)).catch((error) =>
-      console.error("Failed to persist auth state:", error),
-    );
-    return true;
+      if (error || !data.user) {
+        console.error("Login error:", error);
+        return false;
+      }
+
+      // Fetch user profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+      setUser({
+        id: data.user.id,
+        role: profile?.role || "child",
+        email: data.user.email || undefined,
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Login error:", error);
+      return false;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    AsyncStorage.removeItem(STORAGE_KEY).catch((error) =>
-      console.error("Failed to clear auth state:", error),
-    );
+  const signup = async (
+    email: string,
+    password: string,
+    role: UserRole,
+  ): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role,
+            display_name: email.split("@")[0],
+          },
+        },
+      });
+
+      if (error || !data.user) {
+        console.error("Signup error:", error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Signup error:", error);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -72,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAdmin: user?.role === "parent",
         login,
+        signup,
         logout,
       }}
     >

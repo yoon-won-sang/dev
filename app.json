@@ -37,6 +37,10 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "supabaseUrl": "https://your-project.supabase.co",
+      "supabaseAnonKey": "your-anon-key"
     }
   }
 }

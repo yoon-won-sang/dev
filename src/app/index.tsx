@@ -2,7 +2,11 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
-import { DayOfWeek, TaskItem, useHabitState } from "@/hooks/use-habit-state";
+import {
+  DayOfWeek,
+  TaskItem,
+  useHabitState,
+} from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
 import React, { useState } from "react";
 import {

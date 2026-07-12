@@ -10,19 +10,31 @@ import { ThemedView } from "./themed-view";
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { login } = useAuth();
-  const [id, setId] = useState("");
+  const { login, signup } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSignup, setIsSignup] = useState(false);
+  const [role, setRole] = useState<"child" | "parent">("child");
 
-  const handleLogin = () => {
-    if (!id.trim()) {
-      setError("아이디를 입력해주세요.");
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      setError("이메일과 비밀번호를 입력해주세요.");
       return;
     }
-    const success = login(id);
-    if (!success) {
-      setError("존재하지 않는 아이디입니다.");
-      setId("");
+
+    let success: boolean;
+    if (isSignup) {
+      success = await signup(email, password, role);
+      if (success) {
+        setError("회원가입 완료! 로그인해주세요.");
+        setIsSignup(false);
+      }
+    } else {
+      success = await login(email, password);
+      if (!success) {
+        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      }
     }
   };
 
@@ -49,16 +61,38 @@ export default function LoginScreen() {
             </ThemedText>
 
             <TextInput
-              placeholder="아이디 입력"
+              placeholder="이메일"
               placeholderTextColor={theme.textSecondary}
-              value={id}
+              value={email}
               onChangeText={(text) => {
-                setId(text);
+                setEmail(text);
                 setError("");
               }}
-              onSubmitEditing={handleLogin}
+              onSubmitEditing={handleSubmit}
               autoCapitalize="none"
               autoCorrect={false}
+              keyboardType="email-address"
+              style={[
+                styles.textInput,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.backgroundSelected,
+                  borderColor: error ? "#EF4444" : theme.backgroundSelected,
+                },
+              ]}
+            />
+            <TextInput
+              placeholder="비밀번호"
+              placeholderTextColor={theme.textSecondary}
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setError("");
+              }}
+              onSubmitEditing={handleSubmit}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
               style={[
                 styles.textInput,
                 {
@@ -73,23 +107,83 @@ export default function LoginScreen() {
               <ThemedText style={styles.errorText}>{error}</ThemedText>
             ) : null}
 
+            {isSignup && (
+              <View style={styles.roleSelector}>
+                <ThemedText style={styles.roleLabel}>역할 선택:</ThemedText>
+                <View style={styles.roleButtons}>
+                  <Pressable
+                    onPress={() => setRole("child")}
+                    style={[
+                      styles.roleButton,
+                      {
+                        backgroundColor:
+                          role === "child"
+                            ? "#6366F1"
+                            : theme.backgroundSelected,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.roleButtonText,
+                        { color: role === "child" ? "#FFFFFF" : theme.text },
+                      ]}
+                    >
+                      아이
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setRole("parent")}
+                    style={[
+                      styles.roleButton,
+                      {
+                        backgroundColor:
+                          role === "parent"
+                            ? "#6366F1"
+                            : theme.backgroundSelected,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.roleButtonText,
+                        { color: role === "parent" ? "#FFFFFF" : theme.text },
+                      ]}
+                    >
+                      부모
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
             <Pressable
-              onPress={handleLogin}
+              onPress={handleSubmit}
               style={({ pressed }) => [
                 styles.loginButton,
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <ThemedText style={styles.loginButtonText}>로그인</ThemedText>
+              <ThemedText style={styles.loginButtonText}>
+                {isSignup ? "회원가입" : "로그인"}
+              </ThemedText>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setIsSignup(!isSignup);
+                setError("");
+              }}
+              style={styles.switchModeButton}
+            >
+              <ThemedText style={styles.switchModeText}>
+                {isSignup
+                  ? "이미 계정이 있으신가요? 로그인"
+                  : "계정이 없으신가요? 회원가입"}
+              </ThemedText>
             </Pressable>
 
             <View style={styles.hintSection}>
-              {/* <ThemedText themeColor="textSecondary" style={styles.hintLabel}>
-                테스트 계정
-              </ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.hintText}>
-                jiwoo (아이) / admin (관리자)
-              </ThemedText> */}
               <ThemedText themeColor="textSecondary" style={styles.hintLabel}>
                 관계자외 출입금지
               </ThemedText>
@@ -203,5 +297,39 @@ const styles = StyleSheet.create({
   hintText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  roleSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  roleLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  roleButtons: {
+    flexDirection: "row",
+    gap: 8,
+    flex: 1,
+  },
+  roleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roleButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  switchModeButton: {
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  switchModeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6366F1",
   },
 });
