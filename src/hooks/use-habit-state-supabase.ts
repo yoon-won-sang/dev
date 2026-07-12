@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, AppStateStatus, Platform } from "react-native";
 import { useAuth } from "./use-auth";
 
@@ -704,12 +704,15 @@ export function useHabitState() {
     return pendingList;
   };
 
-  const currentScore = calculateWeekScore();
+  const currentScore = useMemo(() => calculateWeekScore(), [currentWeek]);
   const currentGradeInfo = calculateGradeAndReward(currentScore);
 
   const childViewWeek =
     isReadOnly && settledWeekSnapshot ? settledWeekSnapshot : currentWeek;
-  const childScore = calculateWeekScore(childViewWeek);
+  const childScore = useMemo(
+    () => calculateWeekScore(childViewWeek),
+    [childViewWeek],
+  );
   const childGradeInfo = calculateGradeAndReward(childScore);
 
   return {
