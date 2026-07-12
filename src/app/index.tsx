@@ -137,7 +137,7 @@ export default function HabitChecklistScreen() {
   }
 
   const days: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
-  const tasksForSelectedDay = childViewWeek.days[activeDay] || [];
+  const tasksForSelectedDay = childViewWeek?.days?.[activeDay] || [];
 
   const showReadOnlyAlert = () => {
     const message =
