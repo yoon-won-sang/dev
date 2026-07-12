@@ -658,7 +658,7 @@ export function useHabitState() {
       id: newId,
       name: name.trim(),
       category: "특별",
-      points: 2,
+      points: 5,
       status: "pending", // Starts directly in pending so parents can see & approve it
       checkedAt: new Date().toISOString(),
     };

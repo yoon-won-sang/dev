@@ -30,6 +30,62 @@ const TASK_ICONS: { [key: string]: string } = {
   sleep_early: "😴",
 };
 
+// Scoring criteria per task from the official score table
+const SCORE_CRITERIA: {
+  [key: string]: { full: string; partial: string; rejected: string };
+} = {
+  bed_making: {
+    full: "각을 잡아 반듯하게 펴고 베개 제자리",
+    partial: "이불은 폈으나 베개 흩어짐",
+    rejected: "이불이 뭉쳐 있음",
+  },
+  bag_tidying: {
+    full: "가방을 걸고 불필요한 쓰레기 비움",
+    partial: "가방을 바닥에 그냥 둠",
+    rejected: "가방에 쓰레기가 가득",
+  },
+  clothes_organizing: {
+    full: "옷걸이에 걸거나 빨래통에 넣음",
+    partial: "의자에 걸쳐둠",
+    rejected: "방바닥에 방치",
+  },
+  bathroom_drying: {
+    full: "닦고 수건은 빨래통에 넣기",
+    partial: "물기는 닦음, 수건 바닥에",
+    rejected: "물기가 그대로 있음",
+  },
+  shoes_tidying: {
+    full: "앞코를 현관 쪽으로 정렬",
+    partial: "벗어두기만 함",
+    rejected: "현관을 막고 있음",
+  },
+  dish_prep: {
+    full: "잔반 비우고 물에 담가둠",
+    partial: "잔반은 남음, 물에 담금",
+    rejected: "식탁에 그대로 방치",
+  },
+  trash_emptying: {
+    full: "분리수거함에 넣고 쓰레기 비움",
+    partial: "분리수거함 근처에 둠",
+    rejected: "쓰레기가 넘쳐남",
+  },
+  emotion_control: {
+    full: "요청에 밝게 대답함",
+    partial: "무표정/군말 없이 함",
+    rejected: "소리 지름/투덜댐",
+  },
+  greeting_politely: {
+    full: "눈 맞추고 밝게 인사",
+    partial: "작게 대답함",
+    rejected: "대답 없음",
+  },
+  sleep_early: {
+    full: "12시 전 방에 들어가 점등",
+    partial: "12시 전후",
+    rejected: "12시 이후 활동",
+  },
+};
+
 const CATEGORY_COLORS: { [key: string]: string } = {
   생활: "#3B82F6", // Blue
   가사: "#10B981", // Green
@@ -429,6 +485,24 @@ export default function HabitChecklistScreen() {
                                 </ThemedText>
                               </View>
                             </View>
+                            {/* Show scoring criteria based on current status */}
+                            {SCORE_CRITERIA[task.id] && (
+                              <ThemedText
+                                themeColor="textSecondary"
+                                style={styles.criteriaText}
+                              >
+                                {task.status === "approved" &&
+                                  `✅ ${SCORE_CRITERIA[task.id].full}`}
+                                {task.status === "partially_approved" &&
+                                  `🟡 ${SCORE_CRITERIA[task.id].partial}`}
+                                {task.status === "rejected" &&
+                                  `❌ ${SCORE_CRITERIA[task.id].rejected}`}
+                                {task.status === "pending" &&
+                                  `📋 ${SCORE_CRITERIA[task.id].full}`}
+                                {task.status === "unchecked" &&
+                                  `📋 ${SCORE_CRITERIA[task.id].full}`}
+                              </ThemedText>
+                            )}
                           </View>
                         </View>
 
@@ -631,7 +705,7 @@ export default function HabitChecklistScreen() {
                   themeColor="textSecondary"
                   style={styles.specialInputSub}
                 >
-                  스스로 세운 목표(운동, 독서 등)를 제안하면 승인 시 2점을
+                  스스로 세운 목표(운동, 독서 등)를 제안하면 승인 시 최대 5점을
                   얻어요!
                 </ThemedText>
                 <View style={styles.specialInputContainer}>
@@ -1005,6 +1079,12 @@ const styles = StyleSheet.create({
   pointsBadgeText: {
     fontSize: 10,
     fontWeight: "700",
+  },
+  criteriaText: {
+    fontSize: 11,
+    fontWeight: "500",
+    lineHeight: 16,
+    marginTop: 2,
   },
   statusBadge: {
     paddingHorizontal: 8,
