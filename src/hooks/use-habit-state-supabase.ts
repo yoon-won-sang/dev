@@ -171,6 +171,7 @@ export function useHabitState() {
   const appStateRef = useRef(AppState.currentState);
   const isLoadingRef = useRef(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const subscribedUserIdRef = useRef<string | null>(null);
 
   // Load data from Supabase
   const loadData = async () => {
@@ -314,6 +315,11 @@ export function useHabitState() {
   useEffect(() => {
     if (!user) return;
 
+    // Skip if already subscribed to this user
+    if (subscribedUserIdRef.current === user.id && channelRef.current) {
+      return;
+    }
+
     // Remove existing channel if it exists to prevent duplicate subscriptions
     if (channelRef.current) {
       try {
@@ -354,6 +360,7 @@ export function useHabitState() {
       .subscribe();
 
     channelRef.current = channel;
+    subscribedUserIdRef.current = user.id;
 
     return () => {
       if (channelRef.current) {
@@ -363,9 +370,10 @@ export function useHabitState() {
           console.warn("Failed to remove channel on cleanup:", e);
         }
         channelRef.current = null;
+        subscribedUserIdRef.current = null;
       }
     };
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id, not the whole user object
 
   // Load data on mount and auth change
   useEffect(() => {
