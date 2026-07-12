@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 // Map icons to tasks for rich visual feedback
 const TASK_ICONS: { [key: string]: string } = {
   bed_making: "🛏️",
+  bag_tidying: "🎒",
   shoes_tidying: "👟",
   clothes_organizing: "👕",
   dish_prep: "🍽️",
@@ -151,8 +152,8 @@ export default function HabitChecklistScreen() {
   const progressPercent =
     totalTasksCount > 0 ? (completedTasksCount / totalTasksCount) * 100 : 0;
 
-  // Grade progress bar logic (Max is 185 for S grade)
-  const scoreProgressPercent = Math.min((childScore / 185) * 100, 100);
+  // Grade progress bar logic (Max is 280 for S grade)
+  const scoreProgressPercent = Math.min((childScore / 280) * 100, 100);
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
@@ -186,7 +187,7 @@ export default function HabitChecklistScreen() {
                   : "오늘도 성실하게! 🌱"}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
-                {isReadOnly ? "최종 결과 확인 🔒" : "Jiwoo~ 습관 기록장 📝"}
+                {isReadOnly ? "최종 결과 확인 🔒" : "지우의 습관 기록장 📝"}
               </ThemedText>
             </View>
             <View style={styles.headerRight}>
@@ -248,11 +249,11 @@ export default function HabitChecklistScreen() {
             <View style={styles.rewardFooter}>
               <View style={styles.progressTextContainer}>
                 <ThemedText style={styles.progressText}>
-                  {childScore >= 185
+                  {childScore >= 280
                     ? "🎉 최고 등급 달성! 대단해요!"
                     : isReadOnly
                       ? `최종 ${childScore}점으로 ${childGrade} 등급이 확정되었어요!`
-                      : `S등급(185점)까지 ${185 - childScore}점 남았어요!`}
+                      : `S등급(280점)까지 ${280 - childScore}점 남았어요!`}
                 </ThemedText>
               </View>
               <View

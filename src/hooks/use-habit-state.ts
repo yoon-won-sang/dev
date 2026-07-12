@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState, AppStateStatus, Platform } from "react-native";
 
 export type DayOfWeek = "월" | "화" | "수" | "목" | "금" | "토" | "일";
 export type TaskCategory = "생활" | "가사" | "태도" | "건강" | "특별";
@@ -37,30 +37,36 @@ export interface ArchiveEntry {
 const DAYS_OF_WEEK: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
 
 const DEFAULT_TASKS: Omit<TaskItem, "status">[] = [
-  { id: "bed_making", name: "이불 및 침대 정리", category: "생활", points: 5 },
+  { id: "bed_making", name: "이불·침대정리", category: "생활", points: 5 },
+  { id: "bag_tidying", name: "가방 정리", category: "생활", points: 5 },
   { id: "shoes_tidying", name: "신발 정리", category: "생활", points: 5 },
-  { id: "clothes_organizing", name: "옷 정리", category: "생활", points: 5 },
+  {
+    id: "clothes_organizing",
+    name: "옷·행거정리",
+    category: "생활",
+    points: 5,
+  },
   {
     id: "dish_prep",
-    name: "식사 후 그릇 정리 및 물 담그기",
+    name: "그릇 정리·물 담궈놓기",
     category: "가사",
     points: 5,
   },
   {
     id: "bathroom_drying",
-    name: "화장실 물기 닦기",
+    name: "화장실 물기 닦기·수건정리",
     category: "가사",
     points: 5,
   },
   {
     id: "trash_emptying",
-    name: "분리수거 및 쓰레기 비우기",
+    name: "분리수거 도움·쓰레기 정리",
     category: "가사",
     points: 5,
   },
   {
     id: "emotion_control",
-    name: "짜증 내지 않기(감정 조절)",
+    name: "짜증 안 내기",
     category: "태도",
     points: 5,
   },
@@ -106,11 +112,12 @@ export function getWeekRange(date: Date) {
 }
 
 export function calculateGradeAndReward(score: number) {
-  if (score >= 185) return { grade: "S" as const, reward: 20000 };
-  if (score >= 160) return { grade: "A+" as const, reward: 14000 };
-  if (score >= 140) return { grade: "A" as const, reward: 12000 };
-  if (score >= 120) return { grade: "B" as const, reward: 11000 };
-  return { grade: "C" as const, reward: 10000 };
+  // 주간 점수 기준 (만점 350점 = 10항목 × 5점 × 7일)
+  if (score >= 280) return { grade: "S" as const, reward: 15000 };
+  if (score >= 245) return { grade: "A+" as const, reward: 12000 };
+  if (score >= 210) return { grade: "A" as const, reward: 9000 };
+  if (score >= 175) return { grade: "B" as const, reward: 6000 };
+  return { grade: "C" as const, reward: 3000 };
 }
 
 // Initial structure for a blank week
@@ -635,7 +642,9 @@ export function useHabitState() {
     await saveHistory(updatedHistory);
 
     // Save settled week snapshot for child read-only final results view
-    const snapshotData: CurrentWeekData = JSON.parse(JSON.stringify(currentWeek));
+    const snapshotData: CurrentWeekData = JSON.parse(
+      JSON.stringify(currentWeek),
+    );
     await AsyncStorage.setItem(
       STORAGE_KEYS.SETTLED_WEEK_SNAPSHOT,
       JSON.stringify(snapshotData),

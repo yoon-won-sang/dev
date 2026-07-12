@@ -18,11 +18,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const DAYS_OF_WEEK: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
 
 const GRADE_TIERS = [
-  { name: "C", minScore: 0, reward: 10000, color: "#94A3B8" },
-  { name: "B", minScore: 120, reward: 11000, color: "#3B82F6" },
-  { name: "A", minScore: 140, reward: 12000, color: "#8B5CF6" },
-  { name: "A+", minScore: 160, reward: 14000, color: "#EC4899" },
-  { name: "S", minScore: 185, reward: 20000, color: "#10B981" },
+  { name: "C", minScore: 0, reward: 3000, color: "#94A3B8" },
+  { name: "B", minScore: 175, reward: 6000, color: "#3B82F6" },
+  { name: "A", minScore: 210, reward: 9000, color: "#8B5CF6" },
+  { name: "A+", minScore: 245, reward: 12000, color: "#EC4899" },
+  { name: "S", minScore: 280, reward: 15000, color: "#10B981" },
 ];
 
 export default function ParentAdminScreen() {
@@ -406,7 +406,7 @@ export default function ParentAdminScreen() {
                 style={[
                   styles.progressBarFill,
                   {
-                    width: `${Math.min((currentScore / 185) * 100, 100)}%`,
+                    width: `${Math.min((currentScore / 280) * 100, 100)}%`,
                     backgroundColor:
                       GRADE_TIERS.find((t) => t.name === currentGrade)?.color ||
                       "#6366F1",
