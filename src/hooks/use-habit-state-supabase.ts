@@ -170,8 +170,6 @@ export function useHabitState() {
 
   const appStateRef = useRef(AppState.currentState);
   const isLoadingRef = useRef(false);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const subscribedUserIdRef = useRef<string | null>(null);
 
   // Load data from Supabase
   const loadData = async () => {
@@ -311,69 +309,11 @@ export function useHabitState() {
     }
   };
 
-  // Subscribe to real-time changes
-  useEffect(() => {
-    if (!user) return;
-
-    // Skip if already subscribed to this user
-    if (subscribedUserIdRef.current === user.id && channelRef.current) {
-      return;
-    }
-
-    // Remove existing channel if it exists to prevent duplicate subscriptions
-    if (channelRef.current) {
-      try {
-        supabase.removeChannel(channelRef.current);
-      } catch (e) {
-        console.warn("Failed to remove existing channel:", e);
-      }
-    }
-
-    const channel = supabase
-      .channel(`user_${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "weeks",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log("Week changed:", payload);
-          loadData();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "archive",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log("Archive changed:", payload);
-          loadData();
-        },
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-    subscribedUserIdRef.current = user.id;
-
-    return () => {
-      if (channelRef.current) {
-        try {
-          supabase.removeChannel(channelRef.current);
-        } catch (e) {
-          console.warn("Failed to remove channel on cleanup:", e);
-        }
-        channelRef.current = null;
-        subscribedUserIdRef.current = null;
-      }
-    };
-  }, [user?.id]); // Only depend on user.id, not the whole user object
+  // Note: Realtime subscription removed to prevent "cannot add callbacks after subscribe" error
+  // Data sync is handled by:
+  // 1. AppState listener (foreground/background transitions)
+  // 2. 30-second periodic sync interval
+  // 3. BroadcastChannel for web cross-tab sync
 
   // Load data on mount and auth change
   useEffect(() => {
