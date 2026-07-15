@@ -8,6 +8,7 @@ import {
   useHabitState,
 } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
+import { useFocusEffect } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -114,10 +115,25 @@ export default function HabitChecklistScreen() {
     uncheckTask,
     addSpecialTask,
     deleteSpecialTask,
+    refreshData,
   } = useHabitState();
 
   const [specialTaskName, setSpecialTaskName] = useState("");
   const [activeDay, setActiveDay] = useState<DayOfWeek>("월");
+
+  // Refresh data when this tab gains focus (e.g. after parent approves tasks)
+  // forceRefresh=true bypasses the 3-second cooldown guard in loadData
+  // CRITICAL: isReadOnly로 한 번 들어가면 더 이상 호출하지 않음 (무한루프 방지)
+  const isReadOnlyRef = React.useRef(isReadOnly);
+  isReadOnlyRef.current = isReadOnly;
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Once in readOnly mode, never refresh again (prevents infinite loop)
+      if (isReadOnlyRef.current) return;
+      refreshData(); // Don't force refresh - let the cooldown handle dedup
+    }, [refreshData]),
+  );
 
   // Sync active day with simulated day when it changes
   React.useEffect(() => {
@@ -173,7 +189,7 @@ export default function HabitChecklistScreen() {
     }
   };
 
-  // Group tasks by category
+  // Group tasks by category, deduplicating by task id
   const categories: { [key: string]: TaskItem[] } = {
     생활: [],
     가사: [],
@@ -182,7 +198,11 @@ export default function HabitChecklistScreen() {
     특별: [],
   };
 
+  const seenTaskIds = new Set<string>();
   tasksForSelectedDay.forEach((task) => {
+    if (seenTaskIds.has(task.id)) return; // Skip duplicates
+    seenTaskIds.add(task.id);
+
     if (categories[task.category]) {
       categories[task.category].push(task);
     } else {
@@ -343,9 +363,17 @@ export default function HabitChecklistScreen() {
 
           {/* Day Selector Segmented Bar */}
           <View style={styles.daySelectorContainer}>
-            {days.map((d) => {
+            {days.map((d, idx) => {
               const isActive = activeDay === d;
               const isSimToday = simulatedDay === d;
+              // Calculate the actual date for this day based on week's startDate (Monday)
+              const dayDate = childViewWeek?.startDate
+                ? (() => {
+                    const date = new Date(childViewWeek.startDate);
+                    date.setDate(date.getDate() + idx);
+                    return `${date.getMonth() + 1}/${date.getDate()}`;
+                  })()
+                : "";
               return (
                 <Pressable
                   key={d}
@@ -368,6 +396,18 @@ export default function HabitChecklistScreen() {
                     ]}
                   >
                     {d}
+                  </ThemedText>
+                  <ThemedText
+                    style={[
+                      styles.dayDateText,
+                      {
+                        color: isActive
+                          ? "rgba(255,255,255,0.7)"
+                          : theme.textSecondary,
+                      },
+                    ]}
+                  >
+                    {dayDate}
                   </ThemedText>
                   {isSimToday && <View style={styles.todayIndicatorDot} />}
                 </Pressable>
@@ -402,7 +442,9 @@ export default function HabitChecklistScreen() {
 
           {/* Quest Checklist */}
           {Object.keys(categories).map((categoryName) => {
+            // console.log("🚀 ~ HabitChecklistScreen ~ categories:", categories);
             const list = categories[categoryName];
+            console.log("🚀 ~ HabitChecklistScreen ~ list:", list);
             if (list.length === 0) return null;
 
             return (
@@ -641,7 +683,7 @@ export default function HabitChecklistScreen() {
                               </ThemedText>
                             </View>
                           )}
-                          {task.status === "partially_approved" &&
+                          {/* {task.status === "partially_approved" &&
                             isReadOnly && (
                               <View
                                 style={[
@@ -662,7 +704,7 @@ export default function HabitChecklistScreen() {
                                   🟡 {task.approvedPoints ?? 2}점 인정
                                 </ThemedText>
                               </View>
-                            )}
+                            )} */}
                           {!isReadOnly &&
                             task.category === "특별" &&
                             task.status !== "approved" && (
@@ -751,13 +793,14 @@ export default function HabitChecklistScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    flexDirection: "row",
+    width: "100%",
+    alignItems: "center",
   },
   safeArea: {
     flex: 1,
     maxWidth: MaxContentWidth,
     width: "100%",
+    alignSelf: "center",
   },
   scrollContent: {
     paddingHorizontal: Spacing.four,
@@ -946,6 +989,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  dayDateText: {
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 1,
+  },
   todayIndicatorDot: {
     position: "absolute",
     bottom: 4,
@@ -1035,18 +1083,16 @@ const styles = StyleSheet.create({
   statusBtnText: {
     fontSize: 12,
     fontWeight: "700",
+    flexShrink: 1,
   },
   taskRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: "column",
     paddingVertical: Spacing.three,
   },
   taskLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-    marginRight: Spacing.two,
+    marginBottom: Spacing.two,
   },
   taskIconCircle: {
     width: 36,
@@ -1066,6 +1112,8 @@ const styles = StyleSheet.create({
   taskNameText: {
     fontSize: 14,
     fontWeight: "700",
+    flex: 1,
+    flexWrap: "wrap",
   },
   completedText: {
     textDecorationLine: "line-through",
@@ -1083,6 +1131,7 @@ const styles = StyleSheet.create({
   pointsBadgeText: {
     fontSize: 10,
     fontWeight: "700",
+    flexShrink: 1,
   },
   criteriaText: {
     fontSize: 11,
@@ -1102,6 +1151,7 @@ const styles = StyleSheet.create({
   taskRight: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-end",
     gap: 8,
   },
   deleteButton: {

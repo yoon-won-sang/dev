@@ -4,7 +4,7 @@ import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { DayOfWeek, useHabitState } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
-import { useMemo } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   Alert,
   Platform,
@@ -87,6 +87,7 @@ export default function ParentAdminScreen() {
   const {
     currentWeek,
     history,
+    pendingInbox,
     simulatedDay,
     isLoading,
     currentScore,
@@ -100,10 +101,13 @@ export default function ParentAdminScreen() {
     forceWeeklyReset,
     restoreSettledWeek,
     clearAllData,
-    getPendingTasks,
+    refreshData,
   } = useHabitState();
 
-  const pendingInbox = useMemo(() => getPendingTasks(), [currentWeek]);
+  // 검수/정산 화면으로 이동시 자동 조회 (쿨다운 가드로 무한루프 방지)
+  useFocusEffect(() => {
+    refreshData();
+  });
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
@@ -297,136 +301,138 @@ export default function ParentAdminScreen() {
             </ThemedView>
           ) : (
             <View style={styles.inboxList}>
-              {pendingInbox.map(({ day, task }) => (
-                <ThemedView
-                  key={`${day}_${task.id}`}
-                  type="backgroundElement"
-                  style={styles.inboxCard}
-                >
-                  <View style={styles.inboxCardLeft}>
-                    <View style={styles.inboxDayBadge}>
-                      <ThemedText style={styles.inboxDayText}>
-                        {day}요일
-                      </ThemedText>
+              {pendingInbox.map(
+                ({ day, task }: { day: DayOfWeek; task: any }) => (
+                  <ThemedView
+                    key={`${day}_${task.id}`}
+                    type="backgroundElement"
+                    style={styles.inboxCard}
+                  >
+                    <View style={styles.inboxCardLeft}>
+                      <View style={styles.inboxDayBadge}>
+                        <ThemedText style={styles.inboxDayText}>
+                          {day}요일
+                        </ThemedText>
+                      </View>
+                      <View style={styles.inboxTaskInfo}>
+                        <ThemedText style={styles.inboxTaskName}>
+                          {task.name}
+                        </ThemedText>
+                        <ThemedText
+                          themeColor="textSecondary"
+                          style={styles.inboxTaskSub}
+                        >
+                          {task.category} • 최대 +{task.points}점
+                        </ThemedText>
+                      </View>
                     </View>
-                    <View style={styles.inboxTaskInfo}>
-                      <ThemedText style={styles.inboxTaskName}>
-                        {task.name}
-                      </ThemedText>
-                      <ThemedText
-                        themeColor="textSecondary"
-                        style={styles.inboxTaskSub}
+                    <View style={styles.inboxActions}>
+                      <Pressable
+                        onPress={() => rejectTask(day, task.id)}
+                        style={({ pressed }) => [
+                          styles.actionBtn,
+                          styles.rejectBtn,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
                       >
-                        {task.category} • 최대 +{task.points}점
-                      </ThemedText>
-                      {SCORE_CRITERIA[task.id] && (
-                        <View style={styles.inboxCriteriaContainer}>
-                          <View style={styles.criteriaRow}>
-                            <View
-                              style={[
-                                styles.criteriaDot,
-                                { backgroundColor: "#10B981" },
-                              ]}
-                            />
-                            <ThemedText
-                              themeColor="textSecondary"
-                              style={styles.criteriaRowText}
-                            >
-                              5점: {SCORE_CRITERIA[task.id].full}
-                            </ThemedText>
-                          </View>
-                          <View style={styles.criteriaRow}>
-                            <View
-                              style={[
-                                styles.criteriaDot,
-                                { backgroundColor: "#F59E0B" },
-                              ]}
-                            />
-                            <ThemedText
-                              themeColor="textSecondary"
-                              style={styles.criteriaRowText}
-                            >
-                              2~3점: {SCORE_CRITERIA[task.id].partial}
-                            </ThemedText>
-                          </View>
-                          <View style={styles.criteriaRow}>
-                            <View
-                              style={[
-                                styles.criteriaDot,
-                                { backgroundColor: "#EF4444" },
-                              ]}
-                            />
-                            <ThemedText
-                              themeColor="textSecondary"
-                              style={styles.criteriaRowText}
-                            >
-                              0점: {SCORE_CRITERIA[task.id].rejected}
-                            </ThemedText>
-                          </View>
+                        <ThemedText
+                          style={[styles.actionBtnText, { color: "#EF4444" }]}
+                        >
+                          반려 (0점)
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => partialApproveTask(day, task.id, 2)}
+                        style={({ pressed }) => [
+                          styles.actionBtn,
+                          styles.partialBtn,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[styles.actionBtnText, { color: "#D97706" }]}
+                        >
+                          2점 인정
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => partialApproveTask(day, task.id, 3)}
+                        style={({ pressed }) => [
+                          styles.actionBtn,
+                          styles.partialBtn,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[styles.actionBtnText, { color: "#D97706" }]}
+                        >
+                          3점 인정
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => approveTask(day, task.id, task.points)}
+                        style={({ pressed }) => [
+                          styles.actionBtn,
+                          styles.approveBtn,
+                          { opacity: pressed ? 0.7 : 1 },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[styles.actionBtnText, { color: "#FFFFFF" }]}
+                        >
+                          완벽 ({task.points}점)
+                        </ThemedText>
+                      </Pressable>
+                    </View>
+                    {SCORE_CRITERIA[task.id] && (
+                      <View style={styles.inboxCriteriaFullWidth}>
+                        <View style={styles.criteriaRow}>
+                          <View
+                            style={[
+                              styles.criteriaDot,
+                              { backgroundColor: "#10B981" },
+                            ]}
+                          />
+                          <ThemedText
+                            themeColor="textSecondary"
+                            style={styles.criteriaRowText}
+                          >
+                            5점: {SCORE_CRITERIA[task.id].full}
+                          </ThemedText>
                         </View>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.inboxActions}>
-                    <Pressable
-                      onPress={() => rejectTask(day, task.id)}
-                      style={({ pressed }) => [
-                        styles.actionBtn,
-                        styles.rejectBtn,
-                        { opacity: pressed ? 0.7 : 1 },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[styles.actionBtnText, { color: "#EF4444" }]}
-                      >
-                        반려 (0점)
-                      </ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => partialApproveTask(day, task.id, 2)}
-                      style={({ pressed }) => [
-                        styles.actionBtn,
-                        styles.partialBtn,
-                        { opacity: pressed ? 0.7 : 1 },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[styles.actionBtnText, { color: "#D97706" }]}
-                      >
-                        2점 인정
-                      </ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => partialApproveTask(day, task.id, 3)}
-                      style={({ pressed }) => [
-                        styles.actionBtn,
-                        styles.partialBtn,
-                        { opacity: pressed ? 0.7 : 1 },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[styles.actionBtnText, { color: "#D97706" }]}
-                      >
-                        3점 인정
-                      </ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => approveTask(day, task.id, task.points)}
-                      style={({ pressed }) => [
-                        styles.actionBtn,
-                        styles.approveBtn,
-                        { opacity: pressed ? 0.7 : 1 },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[styles.actionBtnText, { color: "#FFFFFF" }]}
-                      >
-                        완벽 ({task.points}점)
-                      </ThemedText>
-                    </Pressable>
-                  </View>
-                </ThemedView>
-              ))}
+                        <View style={styles.criteriaRow}>
+                          <View
+                            style={[
+                              styles.criteriaDot,
+                              { backgroundColor: "#F59E0B" },
+                            ]}
+                          />
+                          <ThemedText
+                            themeColor="textSecondary"
+                            style={styles.criteriaRowText}
+                          >
+                            2~3점: {SCORE_CRITERIA[task.id].partial}
+                          </ThemedText>
+                        </View>
+                        <View style={styles.criteriaRow}>
+                          <View
+                            style={[
+                              styles.criteriaDot,
+                              { backgroundColor: "#EF4444" },
+                            ]}
+                          />
+                          <ThemedText
+                            themeColor="textSecondary"
+                            style={styles.criteriaRowText}
+                          >
+                            0점: {SCORE_CRITERIA[task.id].rejected}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    )}
+                  </ThemedView>
+                ),
+              )}
             </View>
           )}
 
@@ -522,7 +528,7 @@ export default function ParentAdminScreen() {
                       themeColor="textSecondary"
                       style={styles.tierReward}
                     >
-                      {(tier.reward / 1000).toFixed(1)}만
+                      {tier.reward.toLocaleString()}원
                     </ThemedText>
                   </View>
                 );
@@ -627,17 +633,8 @@ export default function ParentAdminScreen() {
             </ThemedView>
           )}
 
-          {/* Simulation & Test Center */}
-          <View style={styles.sectionHeader}>
-            <ThemedText style={styles.sectionTitle}>
-              테스트 및 시뮬레이션 센터 (남편용)
-            </ThemedText>
-          </View>
-
           <ThemedView type="backgroundElement" style={styles.sandboxCard}>
-            <ThemedText style={styles.sandboxTitle}>
-              ⚙️ 개발자 / 운영 시뮬레이터
-            </ThemedText>
+            <ThemedText style={styles.sandboxTitle}>⚙️ 운영자</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.sandboxSub}>
               요일별 기록과 일요일 자정 정산 로직이 정상 작동하는지 테스트하기
               위해 강제로 상태를 조작할 수 있습니다.
@@ -648,8 +645,16 @@ export default function ParentAdminScreen() {
               1. 가상 오늘 요일 설정
             </ThemedText>
             <View style={styles.sandboxDayPicker}>
-              {DAYS_OF_WEEK.map((d) => {
+              {DAYS_OF_WEEK.map((d, idx) => {
                 const isActive = simulatedDay === d;
+                // Calculate the actual date for this day based on week's startDate (Monday)
+                const dayDate = currentWeek?.startDate
+                  ? (() => {
+                      const date = new Date(currentWeek.startDate);
+                      date.setDate(date.getDate() + idx);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    })()
+                  : "";
                 return (
                   <Pressable
                     key={d}
@@ -671,6 +676,18 @@ export default function ParentAdminScreen() {
                     >
                       {d}
                     </ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.sandboxDayDateText,
+                        {
+                          color: isActive
+                            ? "rgba(255,255,255,0.7)"
+                            : theme.textSecondary,
+                        },
+                      ]}
+                    >
+                      {dayDate}
+                    </ThemedText>
                   </Pressable>
                 );
               })}
@@ -690,71 +707,70 @@ export default function ParentAdminScreen() {
                 ]}
               >
                 <ThemedText style={styles.sandboxBtnText}>
-                  강제 주간 정산 (Archive & Reset)
+                  ⚡ 강제 주간 정산
                 </ThemedText>
               </Pressable>
 
+              {/* Restore settled week for re-approval */}
               <Pressable
-                onPress={handleClearAll}
+                onPress={() => {
+                  if (Platform.OS === "web") {
+                    if (
+                      window.confirm(
+                        "정산된 주간을 복원하여 승인을 다시 할 수 있습니다. 현재 주간 데이터는 유지됩니다. 계속하시겠습니까?",
+                      )
+                    ) {
+                      restoreSettledWeek();
+                      alert(
+                        "정산이 취소되었습니다. 승인을 다시 진행해주세요! 🔄",
+                      );
+                    }
+                  } else {
+                    Alert.alert(
+                      "재정산",
+                      "정산된 주간을 복원하여 승인을 다시 할 수 있습니다. 현재 주간 데이터는 유지됩니다.",
+                      [
+                        { text: "취소", style: "cancel" },
+                        {
+                          text: "재정산",
+                          onPress: () => {
+                            restoreSettledWeek();
+                            Alert.alert(
+                              "정산 취소 완료",
+                              "승인을 다시 진행해주세요!",
+                            );
+                          },
+                        },
+                      ],
+                    );
+                  }
+                }}
                 style={({ pressed }) => [
                   styles.sandboxBtn,
-                  styles.dangerSandboxBtn,
+                  styles.restoreSandboxBtn,
                   { opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <ThemedText
-                  style={[styles.sandboxBtnText, { color: "#EF4444" }]}
-                >
-                  전체 데이터 초기화
+                <ThemedText style={styles.sandboxBtnText}>
+                  🔄 정산 취소하고 재승인하기
                 </ThemedText>
               </Pressable>
             </View>
 
-            {/* Restore settled week for re-approval */}
+            {/* Clear All Data */}
             <ThemedText style={styles.sandboxLabel}>
-              3. 재정산 (정산 취소 후 재승인)
+              3. 전체 데이터 초기화
             </ThemedText>
             <Pressable
-              onPress={() => {
-                if (Platform.OS === "web") {
-                  if (
-                    window.confirm(
-                      "정산된 주간을 복원하여 승인을 다시 할 수 있습니다. 현재 주간 데이터는 유지됩니다. 계속하시겠습니까?",
-                    )
-                  ) {
-                    restoreSettledWeek();
-                    alert(
-                      "정산이 취소되었습니다. 승인을 다시 진행해주세요! 🔄",
-                    );
-                  }
-                } else {
-                  Alert.alert(
-                    "재정산",
-                    "정산된 주간을 복원하여 승인을 다시 할 수 있습니다. 현재 주간 데이터는 유지됩니다.",
-                    [
-                      { text: "취소", style: "cancel" },
-                      {
-                        text: "재정산",
-                        onPress: () => {
-                          restoreSettledWeek();
-                          Alert.alert(
-                            "정산 취소 완료",
-                            "승인을 다시 진행해주세요!",
-                          );
-                        },
-                      },
-                    ],
-                  );
-                }
-              }}
+              onPress={handleClearAll}
               style={({ pressed }) => [
                 styles.sandboxBtn,
-                styles.restoreSandboxBtn,
+                styles.dangerSandboxBtn,
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <ThemedText style={styles.sandboxBtnText}>
-                정산 취소하고 재승인하기
+              <ThemedText style={[styles.sandboxBtnText, { color: "#EF4444" }]}>
+                🗑️ 전체 데이터 초기화
               </ThemedText>
             </Pressable>
           </ThemedView>
@@ -822,15 +838,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   logoutBtn: {
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: "#EF4444",
   },
   logoutBtnText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#EF4444",
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -906,9 +922,10 @@ const styles = StyleSheet.create({
   inboxCard: {
     borderRadius: 20,
     padding: Spacing.three,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: Platform.OS === "web" ? "row" : "column",
+    flexWrap: "wrap",
+    justifyContent: Platform.OS === "web" ? "space-between" : "flex-start",
+    alignItems: Platform.OS === "web" ? "center" : "stretch",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -943,6 +960,11 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  inboxCriteriaFullWidth: {
+    width: "100%",
+    marginTop: Spacing.two,
+    gap: 3,
+  },
   inboxTaskName: {
     fontSize: 14,
     fontWeight: "700",
@@ -964,19 +986,24 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
+    marginTop: 6,
   },
   criteriaRowText: {
-    fontSize: 10,
+    fontSize: Platform.OS === "web" ? 10 : 10,
     fontWeight: "500",
-    lineHeight: 14,
+    lineHeight: Platform.OS === "web" ? 14 : 14,
     flex: 1,
+    minWidth: 0,
   },
   inboxActions: {
     flexDirection: "row",
     gap: 8,
+    marginTop: Spacing.two,
+    justifyContent: "space-between",
   },
   actionBtn: {
-    paddingHorizontal: Spacing.three,
+    flex: 1,
+    paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
     borderRadius: 10,
     alignItems: "center",
@@ -1210,6 +1237,11 @@ const styles = StyleSheet.create({
   sandboxDayChipText: {
     fontSize: 12,
     fontWeight: "800",
+  },
+  sandboxDayDateText: {
+    fontSize: 9,
+    fontWeight: "600",
+    marginTop: 1,
   },
   sandboxActionRow: {
     flexDirection: "row",

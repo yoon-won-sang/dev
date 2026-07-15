@@ -68,6 +68,9 @@ CREATE POLICY "Users can view own archive" ON public.archive
 CREATE POLICY "Users can insert own archive" ON public.archive
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users can delete own archive" ON public.archive
+  FOR DELETE USING (auth.uid() = user_id);
+
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
