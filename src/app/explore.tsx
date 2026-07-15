@@ -922,10 +922,8 @@ const styles = StyleSheet.create({
   inboxCard: {
     borderRadius: 20,
     padding: Spacing.three,
-    flexDirection: Platform.OS === "web" ? "row" : "column",
-    flexWrap: "wrap",
-    justifyContent: Platform.OS === "web" ? "space-between" : "flex-start",
-    alignItems: Platform.OS === "web" ? "center" : "stretch",
+    flexDirection: "column",
+    gap: Spacing.two,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -941,15 +939,13 @@ const styles = StyleSheet.create({
   inboxCardLeft: {
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
-    marginRight: Spacing.two,
+    gap: 8,
   },
   inboxDayBadge: {
     backgroundColor: "#F59E0B20",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    marginRight: 10,
   },
   inboxDayText: {
     color: "#F59E0B",
@@ -961,13 +957,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   inboxCriteriaFullWidth: {
-    width: "100%",
-    marginTop: Spacing.two,
     gap: 3,
   },
   inboxTaskName: {
     fontSize: 14,
     fontWeight: "700",
+    flexShrink: 1,
   },
   inboxTaskSub: {
     fontSize: 11,
@@ -997,8 +992,7 @@ const styles = StyleSheet.create({
   },
   inboxActions: {
     flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.two,
+    gap: 6,
     justifyContent: "space-between",
   },
   actionBtn: {
@@ -1021,7 +1015,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#10B981",
   },
   actionBtnText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "800",
   },
   dashboardCard: {
