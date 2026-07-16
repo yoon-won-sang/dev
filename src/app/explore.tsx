@@ -233,10 +233,10 @@ export default function ParentAdminScreen() {
                 themeColor="textSecondary"
                 style={styles.greetingText}
               >
-                신뢰와 지지의 공간 🤝
+                🤝사랑하는 지우
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
-                검수 및 용돈 정산소 💰
+                💰용돈 정산소
               </ThemedText>
             </View>
             <View style={styles.headerRight}>
@@ -707,7 +707,7 @@ export default function ParentAdminScreen() {
                 ]}
               >
                 <ThemedText style={styles.sandboxBtnText}>
-                  ⚡ 강제 주간 정산
+                  ⚡ 주간 정산
                 </ThemedText>
               </Pressable>
 
@@ -752,7 +752,7 @@ export default function ParentAdminScreen() {
                 ]}
               >
                 <ThemedText style={styles.sandboxBtnText}>
-                  🔄 정산 취소하고 재승인하기
+                  🔄 정산취소 & 재승인
                 </ThemedText>
               </Pressable>
             </View>
@@ -770,7 +770,7 @@ export default function ParentAdminScreen() {
               ]}
             >
               <ThemedText style={[styles.sandboxBtnText, { color: "#EF4444" }]}>
-                🗑️ 전체 데이터 초기화
+                🗑️ 전체데이터 초기화
               </ThemedText>
             </Pressable>
           </ThemedView>

@@ -273,7 +273,7 @@ export default function HabitChecklistScreen() {
                   : "오늘도 성실하게! 🌱"}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
-                {isReadOnly ? "최종 결과 확인 🔒" : "지우의 습관 기록장 📝"}
+                {isReadOnly ? "최종결과 확인 🔒" : "지우의 습관기록"}
               </ThemedText>
             </View>
             <View style={styles.headerRight}>
@@ -442,9 +442,7 @@ export default function HabitChecklistScreen() {
 
           {/* Quest Checklist */}
           {Object.keys(categories).map((categoryName) => {
-            // console.log("🚀 ~ HabitChecklistScreen ~ categories:", categories);
             const list = categories[categoryName];
-            console.log("🚀 ~ HabitChecklistScreen ~ list:", list);
             if (list.length === 0) return null;
 
             return (
@@ -823,8 +821,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   profileName: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "700",
     lineHeight: 30,
     marginTop: 2,
   },
