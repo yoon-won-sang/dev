@@ -3,6 +3,7 @@ import { ThemedView } from "@/components/themed-view";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
+import { router } from "expo-router";
 import { useState } from "react";
 import { Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,7 +28,10 @@ export default function ResetPasswordScreen() {
       setError("비밀번호가 일치하지 않습니다.");
       return;
     }
-    await updatePassword(newPassword);
+    const success = await updatePassword(newPassword);
+    if (success) {
+      router.replace("/");
+    }
   };
 
   return (
