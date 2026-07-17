@@ -10,12 +10,16 @@ import { ThemedView } from "./themed-view";
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { login, signup } = useAuth();
+  const { login, signup, resetPassword, updatePassword, isPasswordRecovery } =
+    useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSignup, setIsSignup] = useState(false);
   const [role, setRole] = useState<"child" | "parent">("child");
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -37,6 +41,203 @@ export default function LoginScreen() {
       }
     }
   };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError("비밀번호를 재설정할 이메일을 입력해주세요.");
+      return;
+    }
+    const success = await resetPassword(email);
+    if (success) {
+      setError("");
+      alert(
+        "비밀번호 재설정 링크가 이메일로 전송되었습니다. 이메일을 확인해주세요. ✉️",
+      );
+      setIsForgotPassword(false);
+    } else {
+      setError("비밀번호 재설정 이메일 전송에 실패했습니다.");
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!newPassword.trim()) {
+      setError("새 비밀번호를 입력해주세요.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("비밀번호는 최소 6자 이상이어야 합니다.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+    await updatePassword(newPassword);
+  };
+
+  // Password recovery mode: show new password form
+  if (isPasswordRecovery) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+          <View style={styles.content}>
+            <View style={styles.brandSection}>
+              <ThemedText style={styles.logoEmoji}>🔑</ThemedText>
+              <ThemedText type="subtitle" style={styles.appName}>
+                비밀번호 재설정
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.appDesc}>
+                새 비밀번호를 입력해주세요.
+              </ThemedText>
+            </View>
+
+            <ThemedView type="backgroundElement" style={styles.loginCard}>
+              <ThemedText style={styles.loginTitle}>
+                새 비밀번호 설정
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.loginSub}>
+                6자 이상 입력해주세요.
+              </ThemedText>
+
+              <TextInput
+                placeholder="새 비밀번호"
+                placeholderTextColor={theme.textSecondary}
+                value={newPassword}
+                onChangeText={(text) => {
+                  setNewPassword(text);
+                  setError("");
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                style={[
+                  styles.textInput,
+                  {
+                    color: theme.text,
+                    backgroundColor: theme.backgroundSelected,
+                    borderColor: error ? "#EF4444" : theme.backgroundSelected,
+                  },
+                ]}
+              />
+              <TextInput
+                placeholder="비밀번호 확인"
+                placeholderTextColor={theme.textSecondary}
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setError("");
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                style={[
+                  styles.textInput,
+                  {
+                    color: theme.text,
+                    backgroundColor: theme.backgroundSelected,
+                    borderColor: error ? "#EF4444" : theme.backgroundSelected,
+                  },
+                ]}
+              />
+
+              {error ? (
+                <ThemedText style={styles.errorText}>{error}</ThemedText>
+              ) : null}
+
+              <Pressable
+                onPress={handleUpdatePassword}
+                style={({ pressed }) => [
+                  styles.loginButton,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.loginButtonText}>
+                  비밀번호 변경
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
+  // Forgot password mode: show email input only
+  if (isForgotPassword) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+          <View style={styles.content}>
+            <View style={styles.brandSection}>
+              <ThemedText style={styles.logoEmoji}>🔑</ThemedText>
+              <ThemedText type="subtitle" style={styles.appName}>
+                비밀번호 찾기
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.appDesc}>
+                가입한 이메일을 입력하면 재설정 링크를 보내드립니다.
+              </ThemedText>
+            </View>
+
+            <ThemedView type="backgroundElement" style={styles.loginCard}>
+              <ThemedText style={styles.loginTitle}>이메일 입력</ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.loginSub}>
+                계정에 등록된 이메일 주소를 입력해주세요.
+              </ThemedText>
+
+              <TextInput
+                placeholder="이메일"
+                placeholderTextColor={theme.textSecondary}
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setError("");
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                style={[
+                  styles.textInput,
+                  {
+                    color: theme.text,
+                    backgroundColor: theme.backgroundSelected,
+                    borderColor: error ? "#EF4444" : theme.backgroundSelected,
+                  },
+                ]}
+              />
+
+              {error ? (
+                <ThemedText style={styles.errorText}>{error}</ThemedText>
+              ) : null}
+
+              <Pressable
+                onPress={handleForgotPassword}
+                style={({ pressed }) => [
+                  styles.loginButton,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.loginButtonText}>
+                  재설정 링크 전송
+                </ThemedText>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setIsForgotPassword(false);
+                  setError("");
+                }}
+                style={styles.switchModeButton}
+              >
+                <ThemedText style={styles.switchModeText}>
+                  로그인으로 돌아가기
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -168,6 +369,20 @@ export default function LoginScreen() {
                 {isSignup ? "회원가입" : "로그인"}
               </ThemedText>
             </Pressable>
+
+            {!isSignup && (
+              <Pressable
+                onPress={() => {
+                  setIsForgotPassword(true);
+                  setError("");
+                }}
+                style={styles.forgotPasswordButton}
+              >
+                <ThemedText style={styles.forgotPasswordText}>
+                  비밀번호를 잊으셨나요?
+                </ThemedText>
+              </Pressable>
+            )}
 
             <Pressable
               onPress={() => {
@@ -328,6 +543,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   switchModeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6366F1",
+  },
+  forgotPasswordButton: {
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#6366F1",

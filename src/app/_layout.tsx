@@ -1,4 +1,10 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
+import {
+  DarkTheme,
+  DefaultTheme,
+  Slot,
+  ThemeProvider,
+  usePathname,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useColorScheme } from "react-native";
 
@@ -11,6 +17,12 @@ SplashScreen.preventAutoHideAsync();
 
 function RootContent() {
   const { user, isLoading } = useAuth();
+  const pathname = usePathname();
+
+  // Reset password page is accessible without authentication (file-based route)
+  if (pathname === "/reset-password") {
+    return <Slot />;
+  }
 
   if (isLoading) {
     return (

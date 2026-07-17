@@ -13,9 +13,12 @@ interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isPasswordRecovery: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, role: UserRole) => Promise<boolean>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<boolean>;
+  updatePassword: (newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -23,12 +26,19 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     // Listen for auth state changes
     const {
       data: { subscription },
     } = onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(true);
+        setIsLoading(false);
+        return;
+      }
+
       if (session?.user) {
         // Fetch user profile to get role
         const { data: profile } = await supabase
@@ -52,6 +62,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
+
+  const resetPassword = async (email: string): Promise<boolean> => {
+    try {
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/reset-password`
+          : "dev://reset-password";
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (error) {
+        console.error("Reset password error:", error);
+        alert("비밀번호 재설정 이메일 전송 중 오류가 발생했습니다.");
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Reset password error:", error);
+      alert("비밀번호 재설정 중 오류가 발생했습니다.");
+      return false;
+    }
+  };
+
+  const updatePassword = async (newPassword: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        console.error("Update password error:", error);
+        alert("비밀번호 변경 중 오류가 발생했습니다.");
+        return false;
+      }
+
+      setIsPasswordRecovery(false);
+      alert(
+        "비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인해주세요.",
+      );
+      await supabase.auth.signOut();
+      return true;
+    } catch (error) {
+      console.error("Update password error:", error);
+      alert("비밀번호 변경 중 오류가 발생했습니다.");
+      return false;
+    }
+  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -177,9 +236,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isLoading,
         isAdmin: user?.role === "parent",
+        isPasswordRecovery,
         login,
         signup,
         logout,
+        resetPassword,
+        updatePassword,
       }}
     >
       {children}
