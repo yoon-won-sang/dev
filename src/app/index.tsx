@@ -9,9 +9,10 @@ import {
 } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
 import { useFocusEffect } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Platform,
   Pressable,
   ScrollView,
@@ -99,6 +100,381 @@ const CATEGORY_COLORS: { [key: string]: string } = {
   특별: "#EC4899", // Pink
 };
 
+// 영어 속담 모음 (성실함, 습관, 성장, 인내 관련) — 영문 + 한국어 해석
+const PROVERBS: { en: string; ko: string }[] = [
+  {
+    en: "Early to bed and early to rise, makes a man healthy, wealthy, and wise.",
+    ko: "일찍 자고 일찍 일어나면 건강해지고 부자가 되고 현명해진다.",
+  },
+  {
+    en: "A journey of a thousand miles begins with a single step.",
+    ko: "천 리 길도 한 걸음부터 시작된다.",
+  },
+  {
+    en: "Small strokes fell great oaks.",
+    ko: "작은 도끼질도 큰 참나무를 쓰러뜨린다.",
+  },
+  { en: "Practice makes perfect.", ko: "연습이 완벽을 만든다." },
+  {
+    en: "Where there's a will, there's a way.",
+    ko: "뜻이 있는 곳에 길이 있다.",
+  },
+  {
+    en: "Rome wasn't built in a day.",
+    ko: "로마는 하루아침에 이루어지지 않았다.",
+  },
+  {
+    en: "Slow and steady wins the race.",
+    ko: "느리지만 꾸준한 자가 경주에서 이긴다.",
+  },
+  {
+    en: "The early bird catches the worm.",
+    ko: "일찍 일어난 새가 벌레를 잡는다.",
+  },
+  { en: "No pain, no gain.", ko: "고통 없이는 얻는 것도 없다." },
+  { en: "Habit is a second nature.", ko: "습관은 제2의 천성이다." },
+  { en: "Well begun is half done.", ko: "시작이 반이다." },
+  {
+    en: "Actions speak louder than words.",
+    ko: "말보다 행동이 더 크게 말한다.",
+  },
+  {
+    en: "A stitch in time saves nine.",
+    ko: "때 맞춘 한 바늘이 아홉 바늘을 절약한다.",
+  },
+  { en: "Little by little, one goes far.", ko: "조금씩 조금씩 멀리 나아간다." },
+  {
+    en: "He who would climb the ladder must begin at the bottom.",
+    ko: "사다리를 오르려는 자는 맨 아래부터 시작해야 한다.",
+  },
+  { en: "Perseverance is the key to success.", ko: "인내는 성공의 열쇠다." },
+  {
+    en: "Today's efforts are tomorrow's rewards.",
+    ko: "오늘의 노력이 내일의 보상이다.",
+  },
+  { en: "Every day is a new beginning.", ko: "매일이 새로운 시작이다." },
+  {
+    en: "Success is the sum of small efforts, repeated day in and day out.",
+    ko: "성공은 매일 반복된 작은 노력의 합이다.",
+  },
+  {
+    en: "The secret of getting ahead is getting started.",
+    ko: "앞서나가는 비결은 시작하는 것이다.",
+  },
+  {
+    en: "Discipline is the bridge between goals and accomplishment.",
+    ko: "규율은 목표와 성취를 잇는 다리다.",
+  },
+  {
+    en: "What we do today determines what we become tomorrow.",
+    ko: "오늘 하는 일이 우리의 내일을 결정한다.",
+  },
+  {
+    en: "Excellence is not a skill, it's an attitude.",
+    ko: "탁월함은 기술이 아니라 태도다.",
+  },
+  {
+    en: "The best time to plant a tree was 20 years ago. The second best time is now.",
+    ko: "나무를 심기에 가장 좋은 때는 20년 전이었다. 그다음 좋은 때는 지금이다.",
+  },
+  {
+    en: "Do what you have to do until you can do what you want to do.",
+    ko: "네가 하고 싶은 일을 할 수 있을 때까지 해야 하는 일을 하라.",
+  },
+  {
+    en: "Motivation gets you started. Habit keeps you going.",
+    ko: "동기부여는 시작하게 하고, 습관은 계속 나아가게 한다.",
+  },
+  {
+    en: "Be stronger than your strongest excuse.",
+    ko: "가장 강력한 핑계보다 더 강해져라.",
+  },
+  {
+    en: "Your habits shape your future.",
+    ko: "너의 습관이 너의 미래를 만든다.",
+  },
+  {
+    en: "Don't watch the clock; do what it does. Keep going.",
+    ko: "시계를 보지 말고 시계처럼 계속 나아가라.",
+  },
+  {
+    en: "The pain of discipline is lighter than the pain of regret.",
+    ko: "규율의 고통은 후회의 고통보다 가볍다.",
+  },
+  {
+    en: "You miss 100% of the shots you don't take.",
+    ko: "시도하지 않는 슛은 100% 빗나간다.",
+  },
+  {
+    en: "Believe you can and you're halfway there.",
+    ko: "할 수 있다고 믿으면 이미 절반은 온 것이다.",
+  },
+  {
+    en: "It does not matter how slowly you go as long as you do not stop.",
+    ko: "멈추지 않는다면 얼마나 느리게 가든 상관없다.",
+  },
+  {
+    en: "The only way to do great work is to love what you do.",
+    ko: "훌륭한 일을 하는 유일한 방법은 자신이 하는 일을 사랑하는 것이다.",
+  },
+  {
+    en: "In the middle of difficulty lies opportunity.",
+    ko: "어려움 속에 기회가 있다.",
+  },
+  {
+    en: "Fall seven times, stand up eight.",
+    ko: "일곱 번 넘어져도 여덟 번 일어나라.",
+  },
+  {
+    en: "The future belongs to those who believe in the beauty of their dreams.",
+    ko: "미래는 자신의 꿈의 아름다움을 믿는 사람들의 것이다.",
+  },
+  {
+    en: "Success is not final, failure is not fatal. It is the courage to continue that counts.",
+    ko: "성공이 최종이 아니며 실패가 치명적인 것도 아니다. 중요한 것은 계속할 용기다.",
+  },
+  {
+    en: "What lies behind us and what lies before us are tiny matters compared to what lies within us.",
+    ko: "우리 뒤에 있는 것과 앞에 있는 것은 우리 안에 있는 것에 비하면 아주 작은 것이다.",
+  },
+  {
+    en: "The only person you are destined to become is the person you decide to be.",
+    ko: "네가 될 운명을 가진 유일한 사람은 네가 되기로 결심한 사람이다.",
+  },
+  {
+    en: "Start where you are. Use what you have. Do what you can.",
+    ko: "지금 있는 곳에서 시작하라. 가진 것을 사용하라. 할 수 있는 것을 하라.",
+  },
+  {
+    en: "Dream big and dare to fail.",
+    ko: "크게 꿈꾸고 실패할 용기를 가져라.",
+  },
+  {
+    en: "The harder you work, the luckier you get.",
+    ko: "더 열심히 일할수록 더 운이 좋아진다.",
+  },
+  {
+    en: "Quality is not an act, it is a habit.",
+    ko: "품질은 행동이 아니라 습관이다.",
+  },
+  {
+    en: "Act as if what you do makes a difference. It does.",
+    ko: "네가 하는 일이 차이를 만든다고 생각하고 행동하라. 실제로 그렇다.",
+  },
+  {
+    en: "Failure is the condiment that gives success its flavor.",
+    ko: "실패는 성공에 맛을 내는 양념이다.",
+  },
+  {
+    en: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.",
+    ko: "우리는 반복해서 하는 것들이다. 따라서 탁월함은 행동이 아니라 습관이다.",
+  },
+  {
+    en: "Opportunities don't happen. You create them.",
+    ko: "기회는 생기는 것이 아니다. 네가 만드는 것이다.",
+  },
+  {
+    en: "The secret to getting ahead is getting started.",
+    ko: "앞서나가는 비결은 시작하는 것이다.",
+  },
+  {
+    en: "Don't let yesterday take up too much of today.",
+    ko: "어제가 오늘을 너무 많이 차지하지 않게 하라.",
+  },
+  {
+    en: "You are never too old to set another goal or to dream a new dream.",
+    ko: "새로운 목표를 세우거나 새로운 꿈을 꾸기에는 결코 늦지 않았다.",
+  },
+  {
+    en: "Try not to become a man of success, but rather try to become a man of value.",
+    ko: "성공한 사람이 되려고 애쓰지 말고 가치 있는 사람이 되려고 애써라.",
+  },
+  {
+    en: "It is during our darkest moments that we must focus to see the light.",
+    ko: "가장 어두운 순간에 우리는 빛을 보기 위해 집중해야 한다.",
+  },
+  {
+    en: "If you are going through hell, keep going.",
+    ko: "지옥을 통과하고 있다면 계속 가라.",
+  },
+  {
+    en: "The only impossible journey is the one you never begin.",
+    ko: "불가능한 여정은 단 하나, 결코 시작하지 않는 것이다.",
+  },
+  {
+    en: "Whether you think you can or you think you can't, you're right.",
+    ko: "할 수 있다고 생각하든 할 수 없다고 생각하든, 너의 생각이 맞다.",
+  },
+  {
+    en: "Success usually comes to those who are too busy to be looking for it.",
+    ko: "성공은 보통 그것을 찾기에 너무 바쁜 사람들에게 온다.",
+  },
+  {
+    en: "The mind is everything. What you think you become.",
+    ko: "마음이 모든 것이다. 네가 생각하는 대로 네가 된다.",
+  },
+  {
+    en: "An investment in knowledge pays the best interest.",
+    ko: "지식에 대한 투자는 가장 좋은 이자를 준다.",
+  },
+  {
+    en: "The only limit to our realization of tomorrow is our doubts of today.",
+    ko: "내일의 실현을 제한하는 유일한 것은 오늘의 의심이다.",
+  },
+  {
+    en: "Creativity is intelligence having fun.",
+    ko: "창의성은 즐거워하는 지능이다.",
+  },
+  {
+    en: "If you want to lift yourself up, lift up someone else.",
+    ko: "자신을 일으키고 싶다면 다른 사람을 일으켜라.",
+  },
+  {
+    en: "Limitations live only in our minds. But if we use our imaginations, our possibilities become limitless.",
+    ko: "한계는 오직 우리 마음속에만 존재한다. 그러나 상상력을 사용하면 가능성은 무한해진다.",
+  },
+  {
+    en: "When one door of happiness closes, another opens, but often we look so long at the closed door that we do not see the one which has been opened for us.",
+    ko: "행복의 문 하나가 닫히면 다른 문이 열리지만, 우리는 닫힌 문을 너무 오래 바라보느라 열린 문을 보지 못한다.",
+  },
+  {
+    en: "Life is what happens when you're busy making other plans.",
+    ko: "인생은 다른 계획을 세우느라 바쁠 때 일어난다.",
+  },
+  {
+    en: "The greatest glory in living lies not in never falling, but in rising every time we fall.",
+    ko: "인생의 가장 큰 영광은 넘어지지 않는 것이 아니라 넘어질 때마다 일어나는 것이다.",
+  },
+  {
+    en: "Many of life's failures are people who did not realize how close they were to success when they gave up.",
+    ko: "인생의 실패 중 많은 경우는 포기할 때 성공에 얼마나 가까이 있었는지 깨닫지 못한 사람들이다.",
+  },
+  {
+    en: "If you look at what you have in life, you'll always have more.",
+    ko: "네가 가진 것을 보면 항상 더 많은 것을 갖게 될 것이다.",
+  },
+  {
+    en: "Life is either a daring adventure or nothing at all.",
+    ko: "인생은 대담한 모험이거나 아니면 아무것도 아니다.",
+  },
+  {
+    en: "You must be the change you wish to see in the world.",
+    ko: "네가 세상에서 보고 싶은 변화가 되어라.",
+  },
+  {
+    en: "The way to get started is to quit talking and begin doing.",
+    ko: "시작하는 방법은 말을 그만두고 행동하는 것이다.",
+  },
+  {
+    en: "The only thing we have to fear is fear itself.",
+    ko: "우리가 두려워해야 할 유일한 것은 두려움 그 자체이다.",
+  },
+  {
+    en: "In three words I can sum up everything I've learned about life: it goes on.",
+    ko: "세 단어로 인생에 대해 배운 모든 것을 요약할 수 있다: 계속된다.",
+  },
+  {
+    en: "You have within you right now, everything it takes to deal with whatever the world can throw at you.",
+    ko: "지금 이 순간 너 안에는 세상이 던지는 어떤 것도 대처할 수 있는 모든 것이 있다.",
+  },
+  {
+    en: "The best revenge is massive success.",
+    ko: "가장 좋은 복수는 엄청난 성공이다.",
+  },
+  {
+    en: "I have not failed. I've just found 10,000 ways that won't work.",
+    ko: "나는 실패한 것이 아니다. 단지 작동하지 않는 10,000가지 방법을 찾았을 뿐이다.",
+  },
+  {
+    en: "A person who never made a mistake never tried anything new.",
+    ko: "실수를 한 번도 해보지 않은 사람은 새로운 것을 시도해 본 적이 없는 사람이다.",
+  },
+  {
+    en: "The only person you should try to be better than is the person you were yesterday.",
+    ko: "더 나아져야 할 유일한 사람은 어제의 너 자신이다.",
+  },
+  {
+    en: "Hardships often prepare ordinary people for an extraordinary destiny.",
+    ko: "역경은 종종 평범한 사람들을 비범한 운명으로 준비시킨다.",
+  },
+  {
+    en: "It always seems impossible until it's done.",
+    ko: "해내기 전까지는 항상 불가능해 보인다.",
+  },
+  {
+    en: "Keep your face always toward the sunshine, and shadows will fall behind you.",
+    ko: "항상 태양을 향해 얼굴을 들면 그림자는 뒤에 떨어질 것이다.",
+  },
+  {
+    en: "The best preparation for tomorrow is doing your best today.",
+    ko: "내일을 위한 최고의 준비는 오늘 최선을 다하는 것이다.",
+  },
+  {
+    en: "What you do today can improve all your tomorrows.",
+    ko: "오늘 하는 일이 모든 내일을 더 좋게 만들 수 있다.",
+  },
+  {
+    en: "Set your goals high, and don't stop till you get there.",
+    ko: "목표를 높이 세우고 그곳에 도달할 때까지 멈추지 마라.",
+  },
+  {
+    en: "Dreams don't work unless you do.",
+    ko: "꿈은 네가 움직이지 않으면 이루어지지 않는다.",
+  },
+  {
+    en: "Push yourself, because no one else is going to do it for you.",
+    ko: "스스로 밀어붙여라. 아무도 대신 해주지 않는다.",
+  },
+  {
+    en: "Great things never come from comfort zones.",
+    ko: "위대한 것은 결코 안전지대에서 나오지 않는다.",
+  },
+  {
+    en: "The key to success is to focus on goals, not obstacles.",
+    ko: "성공의 열쇠는 장애물이 아닌 목표에 집중하는 것이다.",
+  },
+  {
+    en: "Success is not how high you have climbed, but how you make a positive difference to the world.",
+    ko: "성공은 얼마나 높이 올랐느냐가 아니라 세상에 얼마나 긍정적인 변화를 만들었느냐다.",
+  },
+  {
+    en: "Your limitation – it's only your imagination.",
+    ko: "너의 한계는 오직 너의 상상력일 뿐이다.",
+  },
+  {
+    en: "Sometimes later becomes never. Do it now.",
+    ko: "때로는 '나중에'가 '절대'가 된다. 지금 하라.",
+  },
+  {
+    en: "Great works are performed not by strength but by perseverance.",
+    ko: "위대한 일은 힘이 아니라 인내로 이루어진다.",
+  },
+  {
+    en: "The secret of success is to do the common things uncommonly well.",
+    ko: "성공의 비결은 평범한 일을 비범하게 잘하는 것이다.",
+  },
+  {
+    en: "Don't be afraid to give up the good to go for the great.",
+    ko: "위대함을 쫓기 위해 좋은 것을 포기하는 것을 두려워하지 마라.",
+  },
+  {
+    en: "I find that the harder I work, the more luck I seem to have.",
+    ko: "더 열심히 일할수록 더 운이 좋아지는 것을 발견한다.",
+  },
+  {
+    en: "Success is walking from failure to failure with no loss of enthusiasm.",
+    ko: "성공은 열정을 잃지 않고 실패에서 실패로 걸어가는 것이다.",
+  },
+  {
+    en: "If you can dream it, you can achieve it.",
+    ko: "꿈꿀 수 있다면 이룰 수 있다.",
+  },
+  {
+    en: "Be not afraid of going slowly, be afraid only of standing still.",
+    ko: "느리게 가는 것을 두려워하지 말고, 멈춰 서 있는 것을 두려워하라.",
+  },
+];
+
 export default function HabitChecklistScreen() {
   const theme = useTheme();
   const { logout } = useAuth();
@@ -120,6 +496,10 @@ export default function HabitChecklistScreen() {
 
   const [specialTaskName, setSpecialTaskName] = useState("");
   const [activeDay, setActiveDay] = useState<DayOfWeek>("월");
+  const [proverbIdx, setProverbIdx] = useState(
+    Math.floor(Math.random() * PROVERBS.length),
+  );
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // Refresh data when this tab gains focus (e.g. after parent approves tasks)
   // forceRefresh=true bypasses the 3-second cooldown guard in loadData
@@ -141,6 +521,26 @@ export default function HabitChecklistScreen() {
       setActiveDay(simulatedDay);
     }
   }, [simulatedDay]);
+
+  // 1분마다 속담을 페이드 아웃/인 전환
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => {
+        setProverbIdx(Math.floor(Math.random() * PROVERBS.length));
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [fadeAnim]);
 
   if (isLoading || !childViewWeek) {
     return (
@@ -311,6 +711,27 @@ export default function HabitChecklistScreen() {
               </ThemedText>
             </ThemedView>
           )}
+
+          {/* 오늘의 속담 패널 - 1분마다 자동 변경 */}
+          <ThemedView type="backgroundElement" style={styles.proverbCard}>
+            <View style={styles.proverbIconRow}>
+              <ThemedText style={styles.proverbIcon}>💡</ThemedText>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.proverbLabel}
+              >
+                오늘의 말씀
+              </ThemedText>
+            </View>
+            <Animated.View style={{ opacity: fadeAnim }}>
+              <ThemedText style={styles.proverbText}>
+                {PROVERBS[proverbIdx].en}
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.proverbKo}>
+                {PROVERBS[proverbIdx].ko}
+              </ThemedText>
+            </Animated.View>
+          </ThemedView>
 
           {/* Weekly Status Reward Card */}
           <View style={[styles.rewardCard, { shadowColor: "#6366F1" }]}>
@@ -877,6 +1298,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     lineHeight: 18,
+  },
+  proverbCard: {
+    borderRadius: 20,
+    padding: Spacing.three,
+    marginBottom: Spacing.three,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.06)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  proverbIconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.two,
+  },
+  proverbIcon: {
+    fontSize: 18,
+  },
+  proverbLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  proverbText: {
+    fontSize: 14,
+    fontWeight: "600",
+    fontStyle: "italic",
+    lineHeight: 22,
+    letterSpacing: 0.2,
+  },
+  proverbKo: {
+    fontSize: 12,
+    fontWeight: "500",
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  nextDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginVertical: Spacing.two,
+  },
+  nextProverbRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  nextArrow: {
+    fontSize: 12,
+  },
+  nextProverbContent: {
+    flex: 1,
+    gap: 2,
+  },
+  nextText: {
+    fontSize: 12,
+    fontWeight: "500",
+    fontStyle: "italic",
+  },
+  nextKo: {
+    fontSize: 11,
+    fontWeight: "500",
   },
   rewardCard: {
     backgroundColor: "#6366F1",
