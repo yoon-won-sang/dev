@@ -1,18 +1,14 @@
 import { createClient, Session, User } from "@supabase/supabase-js";
+import Constants from "expo-constants";
 
 // Get config from app.json extra (works with Expo)
 const getSupabaseConfig = () => {
-  try {
-    // @ts-ignore - expo-constants provides this
-    const { expoConfig } = require("expo-config");
-    if (expoConfig?.extra) {
-      return {
-        url: expoConfig.extra.supabaseUrl || "",
-        key: expoConfig.extra.supabaseAnonKey || "",
-      };
-    }
-  } catch (e) {
-    console.log("expo-config not available, using env vars");
+  // Try expo-constants first (from app.json extra)
+  if (Constants.expoConfig?.extra) {
+    return {
+      url: Constants.expoConfig.extra.supabaseUrl || "",
+      key: Constants.expoConfig.extra.supabaseAnonKey || "",
+    };
   }
 
   // Fallback to environment variables

@@ -1,3 +1,4 @@
+import { ParentChildSelector } from "@/components/parent-child-selector";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
@@ -5,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { DayOfWeek, useHabitState } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
 import { useFocusEffect } from "expo-router";
+import React from "react";
 import {
   Alert,
   Platform,
@@ -102,12 +104,43 @@ export default function ParentAdminScreen() {
     restoreSettledWeek,
     clearAllData,
     refreshData,
+    refreshChildData,
+    children,
+    selectedChildId,
+    selectChild,
+    exitChildView,
+    loadChildrenList,
+    loadChildData,
   } = useHabitState();
+  const { user } = useAuth();
 
-  // 검수/정산 화면으로 이동시 자동 조회 (쿨다운 가드로 무한루프 방지)
-  useFocusEffect(() => {
-    refreshData();
-  });
+  const [showChildSelector, setShowChildSelector] = React.useState(false);
+
+  // 검수/정산 화면으로 이동시 자동 조회
+  // 자녀가 선택된 상태에서도 데이터를 새로고침하여 부모의 승인 상태를 반영
+  // CRITICAL: Always refresh to get latest data, even in read-only mode
+  // The loadChildData function now checks DB settlement status to handle cross-tab sync
+  useFocusEffect(
+    React.useCallback(() => {
+      if (selectedChildId) {
+        // 자녀 데이터를 보고 있는 경우, 자녀 데이터 새로고침
+        refreshChildData();
+      } else {
+        // 자신의 데이터를 보고 있는 경우, 일반 데이터 새로고침
+        refreshData();
+      }
+    }, [refreshData, refreshChildData, selectedChildId]),
+  );
+
+  // Load children list on mount (once)
+  React.useEffect(() => {
+    loadChildrenList();
+  }, []);
+
+  const handleSelectChild = (childId: string) => {
+    selectChild(childId);
+    setShowChildSelector(false);
+  };
 
   const handleLogout = () => {
     if (Platform.OS === "web") {
@@ -122,7 +155,55 @@ export default function ParentAdminScreen() {
     }
   };
 
-  if (isLoading || !currentWeek) {
+  // Show child selector modal first, before any loading check
+  if (showChildSelector) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.background,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                자녀 선택
+              </ThemedText>
+              <Pressable
+                onPress={() => setShowChildSelector(false)}
+                style={[
+                  styles.modalCloseButton,
+                  {
+                    backgroundColor: theme.backgroundSelected,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.modalCloseText,
+                    {
+                      color: theme.text,
+                    },
+                  ]}
+                >
+                  ✕
+                </ThemedText>
+              </Pressable>
+            </View>
+            <ParentChildSelector
+              onSelectChild={handleSelectChild}
+              onBack={() => setShowChildSelector(false)}
+            />
+          </View>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  if (isLoading) {
     return (
       <ThemedView style={styles.loadingContainer}>
         <ThemedText style={styles.loadingText}>
@@ -233,34 +314,57 @@ export default function ParentAdminScreen() {
                 themeColor="textSecondary"
                 style={styles.greetingText}
               >
-                🤝사랑하는 지우
+                {selectedChildId ? "자녀 검수&정산" : "🤝사랑하는 지우"}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
-                💰용돈 정산소
+                {selectedChildId
+                  ? `${children.find((c) => c.id === selectedChildId)?.display_name || "자녀"}의 검수대기`
+                  : "💰용돈 정산소"}
               </ThemedText>
             </View>
-            <View style={styles.headerRight}>
-              <View
-                style={[
-                  styles.badgeContainer,
-                  { backgroundColor: theme.backgroundElement },
-                ]}
-              >
-                <ThemedText style={styles.badgeText}>
-                  보관함 {history.length}회
-                </ThemedText>
-              </View>
-              <Pressable
-                onPress={handleLogout}
-                style={({ pressed }) => [
-                  styles.logoutBtn,
-                  { opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
-              </Pressable>
+            <View
+              style={[
+                styles.badgeContainer,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <ThemedText style={styles.badgeText}>
+                보관함 {history.length}회
+              </ThemedText>
             </View>
           </View>
+          {/* Action Buttons Row */}
+          <View style={styles.actionRow}>
+            {user?.role === "parent" && (
+              <Pressable
+                onPress={() => setShowChildSelector(true)}
+                style={({ pressed }) => [
+                  styles.childSelectorBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.childSelectorBtnText}>
+                  👨‍👩‍👧‍👦 자녀 선택
+                </ThemedText>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.logoutBtn,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
+            </Pressable>
+          </View>
+
+          {/* Section header with period only if week data exists */}
+          {currentWeek && (
+            <ThemedText themeColor="textSecondary" style={styles.periodText}>
+              ({currentWeek.startDate} ~ {currentWeek.endDate})
+            </ThemedText>
+          )}
 
           {/* Pending Approval Inbox */}
           <View style={styles.sectionHeader}>
@@ -437,130 +541,136 @@ export default function ParentAdminScreen() {
           )}
 
           {/* Weekly Grade Dashboard */}
-          <View style={styles.sectionHeader}>
-            <ThemedText style={styles.sectionTitle}>
-              이번 주 등급 보상 현황
-            </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.periodText}>
-              ({currentWeek.startDate} ~ {currentWeek.endDate})
-            </ThemedText>
-          </View>
-
-          <ThemedView type="backgroundElement" style={styles.dashboardCard}>
-            <View style={styles.dashboardScoreRow}>
-              <View>
-                <ThemedText
-                  themeColor="textSecondary"
-                  style={styles.dashboardLabel}
-                >
-                  승인된 점수 합계
-                </ThemedText>
-                <ThemedText style={styles.dashboardScore}>
-                  {currentScore}점
-                </ThemedText>
-              </View>
-              <View
-                style={[
-                  styles.dashboardRewardBadge,
-                  {
-                    backgroundColor:
-                      GRADE_TIERS.find((t) => t.name === currentGrade)?.color +
-                      "15",
-                  },
-                ]}
-              >
-                <ThemedText
-                  style={[
-                    styles.dashboardRewardAmount,
-                    {
-                      color: GRADE_TIERS.find((t) => t.name === currentGrade)
-                        ?.color,
-                    },
-                  ]}
-                >
-                  {currentReward.toLocaleString()}원 지급
-                </ThemedText>
-                <ThemedText
-                  style={[
-                    styles.dashboardGradeText,
-                    {
-                      color: GRADE_TIERS.find((t) => t.name === currentGrade)
-                        ?.color,
-                    },
-                  ]}
-                >
-                  {currentGrade} 등급
-                </ThemedText>
-              </View>
+          {currentWeek && (
+            <View style={styles.sectionHeader}>
+              <ThemedText style={styles.sectionTitle}>
+                이번 주 등급 보상 현황
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.periodText}>
+                ({currentWeek.startDate} ~ {currentWeek.endDate})
+              </ThemedText>
             </View>
+          )}
 
-            {/* Visual Grade Tiers */}
-            <View style={styles.tiersContainer}>
-              {GRADE_TIERS.map((tier, index) => {
-                const isCurrent = currentGrade === tier.name;
-                return (
-                  <View key={tier.name} style={styles.tierPillContainer}>
-                    <View
-                      style={[
-                        styles.tierPill,
-                        {
-                          backgroundColor: isCurrent
-                            ? tier.color
-                            : theme.backgroundSelected,
-                        },
-                      ]}
-                    >
-                      <ThemedText
+          {currentWeek && (
+            <ThemedView type="backgroundElement" style={styles.dashboardCard}>
+              <View style={styles.dashboardScoreRow}>
+                <View>
+                  <ThemedText
+                    themeColor="textSecondary"
+                    style={styles.dashboardLabel}
+                  >
+                    승인된 점수 합계
+                  </ThemedText>
+                  <ThemedText style={styles.dashboardScore}>
+                    {currentScore}점
+                  </ThemedText>
+                </View>
+                <View
+                  style={[
+                    styles.dashboardRewardBadge,
+                    {
+                      backgroundColor:
+                        GRADE_TIERS.find((t) => t.name === currentGrade)
+                          ?.color + "15",
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.dashboardRewardAmount,
+                      {
+                        color: GRADE_TIERS.find((t) => t.name === currentGrade)
+                          ?.color,
+                      },
+                    ]}
+                  >
+                    {currentReward.toLocaleString()}원 지급
+                  </ThemedText>
+                  <ThemedText
+                    style={[
+                      styles.dashboardGradeText,
+                      {
+                        color: GRADE_TIERS.find((t) => t.name === currentGrade)
+                          ?.color,
+                      },
+                    ]}
+                  >
+                    {currentGrade} 등급
+                  </ThemedText>
+                </View>
+              </View>
+
+              {/* Visual Grade Tiers */}
+              <View style={styles.tiersContainer}>
+                {GRADE_TIERS.map((tier, index) => {
+                  const isCurrent = currentGrade === tier.name;
+                  return (
+                    <View key={tier.name} style={styles.tierPillContainer}>
+                      <View
                         style={[
-                          styles.tierPillText,
+                          styles.tierPill,
                           {
-                            color: isCurrent ? "#FFFFFF" : theme.textSecondary,
+                            backgroundColor: isCurrent
+                              ? tier.color
+                              : theme.backgroundSelected,
                           },
                         ]}
                       >
-                        {tier.name}
+                        <ThemedText
+                          style={[
+                            styles.tierPillText,
+                            {
+                              color: isCurrent
+                                ? "#FFFFFF"
+                                : theme.textSecondary,
+                            },
+                          ]}
+                        >
+                          {tier.name}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={styles.tierPoints}>
+                        {tier.minScore}점+
+                      </ThemedText>
+                      <ThemedText
+                        themeColor="textSecondary"
+                        style={styles.tierReward}
+                      >
+                        {tier.reward.toLocaleString()}원
                       </ThemedText>
                     </View>
-                    <ThemedText style={styles.tierPoints}>
-                      {tier.minScore}점+
-                    </ThemedText>
-                    <ThemedText
-                      themeColor="textSecondary"
-                      style={styles.tierReward}
-                    >
-                      {tier.reward.toLocaleString()}원
-                    </ThemedText>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
 
-            <View
-              style={[
-                styles.progressBarBg,
-                { backgroundColor: theme.backgroundSelected },
-              ]}
-            >
               <View
                 style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${Math.min((currentScore / 280) * 100, 100)}%`,
-                    backgroundColor:
-                      GRADE_TIERS.find((t) => t.name === currentGrade)?.color ||
-                      "#6366F1",
-                  },
+                  styles.progressBarBg,
+                  { backgroundColor: theme.backgroundSelected },
                 ]}
-              />
-            </View>
-            <ThemedText
-              themeColor="textSecondary"
-              style={styles.dashboardFooterText}
-            >
-              * 아이가 정해진 습관을 수행하고 부모가 승인한 점수만 실시간
-              합산됩니다.
-            </ThemedText>
-          </ThemedView>
+              >
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      width: `${Math.min((currentScore / 280) * 100, 100)}%`,
+                      backgroundColor:
+                        GRADE_TIERS.find((t) => t.name === currentGrade)
+                          ?.color || "#6366F1",
+                    },
+                  ]}
+                />
+              </View>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.dashboardFooterText}
+              >
+                * 아이가 정해진 습관을 수행하고 부모가 승인한 점수만 실시간
+                합산됩니다.
+              </ThemedText>
+            </ThemedView>
+          )}
 
           {/* History Archive */}
           <View style={styles.sectionHeader}>
@@ -811,6 +921,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: Spacing.three,
   },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: Spacing.two,
+    marginBottom: Spacing.two,
+  },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
@@ -834,6 +951,17 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   badgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  childSelectorBtn: {
+    backgroundColor: "#6366F1",
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 8,
+  },
+  childSelectorBtnText: {
+    color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -1261,5 +1389,45 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "800",
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.four,
+    zIndex: 1000,
+  },
+  modalContent: {
+    borderRadius: 20,
+    padding: Spacing.four,
+    width: "100%",
+    maxHeight: "80%",
+    maxWidth: 500,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.three,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCloseText: {
+    fontSize: 18,
+    fontWeight: "700",
   },
 });

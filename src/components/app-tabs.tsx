@@ -32,6 +32,16 @@ export default function AppTabs() {
           />
         </NativeTabs.Trigger>
       )}
+
+      {isAdmin && (
+        <NativeTabs.Trigger name="parent-quests">
+          <NativeTabs.Trigger.Label>퀘스트 관리</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon
+            src={require("@/assets/images/tabIcons/explore.png")}
+            renderingMode="template"
+          />
+        </NativeTabs.Trigger>
+      )}
     </NativeTabs>
   );
 }

@@ -1,3 +1,4 @@
+import { getRealDayOfWeek, getToday } from "@/constants/date";
 import { supabase } from "@/lib/supabase";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, AppStateStatus, Platform } from "react-native";
@@ -107,6 +108,9 @@ const DEFAULT_TASKS: Omit<TaskItem, "status">[] = [
   { id: "sleep_early", name: "12시 이전 취침", category: "건강", points: 5 },
 ];
 
+// Export DEFAULT_TASKS for use in other screens
+export { DEFAULT_TASKS };
+
 function getWeekNumber(d: Date): number {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = date.getUTCDay() || 7;
@@ -178,11 +182,7 @@ export function createInitialWeekData(date: Date): CurrentWeekData {
   };
 }
 
-export const getRealDayOfWeek = (): DayOfWeek => {
-  const day = new Date().getDay();
-  if (day === 0) return "일";
-  return DAYS_OF_WEEK[day - 1];
-};
+export { getRealDayOfWeek } from "@/constants/date";
 
 export function useHabitState() {
   const { user } = useAuth();
@@ -194,6 +194,21 @@ export function useHabitState() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [settledWeekSnapshot, setSettledWeekSnapshot] =
     useState<CurrentWeekData | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [children, setChildren] = useState<
+    Array<{ id: string; display_name: string; email: string }>
+  >([]);
+
+  // Load selected child from localStorage on mount
+  useEffect(() => {
+    if (user?.role === "parent") {
+      const savedChildId = localStorage.getItem("selectedChildId");
+      if (savedChildId) {
+        setSelectedChildId(savedChildId);
+        loadChildData(savedChildId, true);
+      }
+    }
+  }, [user]);
 
   const appStateRef = useRef(AppState.currentState);
   const isLoadingRef = useRef(false);
@@ -217,6 +232,9 @@ export function useHabitState() {
     if (!user) return;
 
     isLoadingRef.current = true;
+
+    // CRITICAL: Only load own data - child data loading is handled separately by explore.tsx
+    // This prevents other tabs (오늘의 습관, 퀘스트 관리) from getting stuck on child data
 
     // CRITICAL: Clear settled snapshot before loading to prevent duplicate display
     // This ensures only one source of truth (either DB or snapshot, not both)
@@ -243,7 +261,7 @@ export function useHabitState() {
       // Delete any non-settled weeks that have start_date in the future
       // These are orphaned fresh weeks created by duplicate settlement
       if (allNonSettledWeeks && allNonSettledWeeks.length > 0) {
-        const today = new Date();
+        const today = getToday();
         const currentRange = getWeekRange(today);
         for (const orphan of allNonSettledWeeks) {
           if (orphan.start_date > currentRange.startDate) {
@@ -259,173 +277,167 @@ export function useHabitState() {
         }
       }
 
-      // === STEP 1: Check if there's a SETTLED week in the DB ===
-      // This handles cross-tab sync: parent tab may have settled a week,
-      // and child tab needs to discover it via the database
-      // We query ALL settled weeks and filter out empty ones (duplicate settlements)
-      const { data: allSettledWeeks, error: settledWeekError } = await supabase
+      // === STEP 1: Load current (latest, non-settled) week FIRST ===
+      // This ensures the parent can always edit the current week
+      const { data: weekData, error: weekError } = await supabase
         .from("weeks")
         .select("*")
         .eq("user_id", user.id)
-        .eq("is_settled", true)
-        .order("created_at", { ascending: false });
+        .eq("is_settled", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (settledWeekError) {
-        console.error("Error loading settled weeks:", settledWeekError);
+      if (weekError) {
+        console.error("Error loading week:", weekError);
       }
 
-      let settledWeekData = null;
-      if (allSettledWeeks && allSettledWeeks.length > 0) {
-        // Find the MOST RECENT settled week that actually has real task data
-        // (not an empty fresh week created by accidental duplicate settlement)
-        for (const candidate of allSettledWeeks) {
-          const days = candidate.days;
-          if (days && typeof days === "object") {
-            let hasRealTasks = false;
-            for (const day of DAYS_OF_WEEK) {
-              const tasks = days[day];
-              if (tasks && Array.isArray(tasks) && tasks.length > 0) {
-                // Check if at least one task has a non-"unchecked" status
-                const nonDefaultTask = tasks.find(
-                  (t: any) => t.status && t.status !== "unchecked",
-                );
-                if (nonDefaultTask) {
-                  hasRealTasks = true;
-                  break;
-                }
-              }
-            }
-            if (hasRealTasks) {
-              settledWeekData = candidate;
-              break;
-            }
-          }
-        }
-        // Fallback: if no real settled week found, use the most recent one
-        if (!settledWeekData) {
-          settledWeekData = allSettledWeeks[0];
-        }
-      }
-
-      if (settledWeekData) {
-        // Found a settled week in DB - restore it as the snapshot
+      if (weekData) {
         console.log(
-          `[loadData] FOUND settled week from DB: weekId=${settledWeekData.week_id}, start=${settledWeekData.start_date}, end=${settledWeekData.end_date}`,
+          `[loadData] loading current week: weekId=${weekData.week_id}`,
         );
 
-        let settledParsed: CurrentWeekData = {
-          weekId: settledWeekData.week_id,
-          startDate: settledWeekData.start_date,
-          endDate: settledWeekData.end_date,
-          days: settledWeekData.days || createInitialWeekData(new Date()).days,
+        let parsedWeek: CurrentWeekData = {
+          weekId: weekData.week_id,
+          startDate: weekData.start_date,
+          endDate: weekData.end_date,
+          days: weekData.days || createInitialWeekData(getToday()).days,
         };
 
-        // Ensure all days exist
-        if (!settledParsed.days) {
-          settledParsed.days = createInitialWeekData(new Date()).days;
+        if (!parsedWeek.days) {
+          parsedWeek.days = createInitialWeekData(getToday()).days;
         } else {
-          const defaultDays = createInitialWeekData(new Date()).days;
+          const defaultDays = createInitialWeekData(getToday()).days;
           DAYS_OF_WEEK.forEach((day) => {
-            if (!settledParsed.days[day]) {
-              settledParsed.days[day] = defaultDays[day];
+            if (!parsedWeek.days[day]) {
+              parsedWeek.days[day] = defaultDays[day];
             }
           });
         }
 
-        // CRITICAL: Deduplicate tasks to prevent duplicate buttons
-        settledParsed.days = deduplicateWeekDays(settledParsed.days);
+        // CRITICAL: Deduplicate tasks BEFORE setting state to prevent duplicate buttons
+        parsedWeek.days = deduplicateWeekDays(parsedWeek.days);
 
         // CRITICAL: Save deduped data back to DB to clean up existing duplicates
         await supabase
           .from("weeks")
-          .update({ days: settledParsed.days })
+          .update({ days: parsedWeek.days })
           .eq("user_id", user.id)
-          .eq("week_id", settledWeekData.week_id);
+          .eq("week_id", weekData.week_id);
 
-        const snapshotData: CurrentWeekData = JSON.parse(
-          JSON.stringify(settledParsed),
+        console.log(
+          `[loadData] setting currentWeek from fetched data (deduplicated and cleaned up DB)`,
         );
-        setSettledWeekSnapshot(snapshotData);
-        setIsReadOnly(true);
-        setCurrentWeek(snapshotData);
-      }
+        setCurrentWeek(parsedWeek);
 
-      // === STEP 2: Load current (latest, non-settled) week ===
-      // Only load this if we DON'T already have a settled week to show
-      // This prevents overwriting the settled snapshot
-      if (!settledWeekData) {
-        const { data: weekData, error: weekError } = await supabase
-          .from("weeks")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("is_settled", false)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (weekError) {
-          console.error("Error loading week:", weekError);
-        }
-
-        if (weekData) {
-          console.log(
-            `[loadData] loading current week: weekId=${weekData.week_id}`,
-          );
-
-          let parsedWeek: CurrentWeekData = {
-            weekId: weekData.week_id,
-            startDate: weekData.start_date,
-            endDate: weekData.end_date,
-            days: weekData.days || createInitialWeekData(new Date()).days,
-          };
-
-          if (!parsedWeek.days) {
-            parsedWeek.days = createInitialWeekData(new Date()).days;
-          } else {
-            const defaultDays = createInitialWeekData(new Date()).days;
-            DAYS_OF_WEEK.forEach((day) => {
-              if (!parsedWeek.days[day]) {
-                parsedWeek.days[day] = defaultDays[day];
-              }
-            });
-          }
-
-          // CRITICAL: Deduplicate tasks BEFORE setting state to prevent duplicate buttons
-          parsedWeek.days = deduplicateWeekDays(parsedWeek.days);
-
-          // CRITICAL: Save deduped data back to DB to clean up existing duplicates
-          await supabase
-            .from("weeks")
-            .update({ days: parsedWeek.days })
-            .eq("user_id", user.id)
-            .eq("week_id", weekData.week_id);
-
-          console.log(
-            `[loadData] setting currentWeek from fetched data (deduplicated and cleaned up DB)`,
-          );
-          setCurrentWeek(parsedWeek);
-
-          // Check if this week is in the past and needs auto-archive
-          const today = new Date();
-          const currentRange = getWeekRange(today);
-          if (parsedWeek.startDate < currentRange.startDate) {
-            await archiveWeek(parsedWeek);
-            const freshWeek = createInitialWeekData(today);
-            setCurrentWeek(freshWeek);
-            await saveWeekToSupabase(freshWeek, false);
-          }
-        } else {
-          // First time - create new week
-          const freshWeek = createInitialWeekData(new Date());
+        // Check if this week is in the past and needs auto-archive
+        const today = getToday();
+        const currentRange = getWeekRange(today);
+        if (parsedWeek.startDate < currentRange.startDate) {
+          await archiveWeek(parsedWeek);
+          const freshWeek = createInitialWeekData(today);
           setCurrentWeek(freshWeek);
           await saveWeekToSupabase(freshWeek, false);
         }
       } else {
-        console.log(
-          `[loadData] SKIPPING current week fetch - settled week is being displayed`,
-        );
-      }
+        // === STEP 2: Check if there's a SETTLED week in the DB ===
+        // This handles cross-tab sync: parent tab may have settled a week,
+        // and child tab needs to discover it via the database
+        // We query ALL settled weeks and filter out empty ones (duplicate settlements)
+        const { data: allSettledWeeks, error: settledWeekError } =
+          await supabase
+            .from("weeks")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("is_settled", true)
+            .order("created_at", { ascending: false });
 
+        if (settledWeekError) {
+          console.error("Error loading settled weeks:", settledWeekError);
+        }
+
+        let settledWeekData = null;
+        if (allSettledWeeks && allSettledWeeks.length > 0) {
+          // Find the MOST RECENT settled week that actually has real task data
+          // (not an empty fresh week created by accidental duplicate settlement)
+          for (const candidate of allSettledWeeks) {
+            const days = candidate.days;
+            if (days && typeof days === "object") {
+              let hasRealTasks = false;
+              for (const day of DAYS_OF_WEEK) {
+                const tasks = days[day];
+                if (tasks && Array.isArray(tasks) && tasks.length > 0) {
+                  // Check if at least one task has a non-"unchecked" status
+                  const nonDefaultTask = tasks.find(
+                    (t: any) => t.status && t.status !== "unchecked",
+                  );
+                  if (nonDefaultTask) {
+                    hasRealTasks = true;
+                    break;
+                  }
+                }
+              }
+              if (hasRealTasks) {
+                settledWeekData = candidate;
+                break;
+              }
+            }
+          }
+          // Fallback: if no real settled week found, use the most recent one
+          if (!settledWeekData) {
+            settledWeekData = allSettledWeeks[0];
+          }
+        }
+
+        if (settledWeekData) {
+          // Found a settled week in DB - restore it as the snapshot
+          console.log(
+            `[loadData] FOUND settled week from DB: weekId=${settledWeekData.week_id}, start=${settledWeekData.start_date}, end=${settledWeekData.end_date}`,
+          );
+
+          let settledParsed: CurrentWeekData = {
+            weekId: settledWeekData.week_id,
+            startDate: settledWeekData.start_date,
+            endDate: settledWeekData.end_date,
+            days:
+              settledWeekData.days || createInitialWeekData(getToday()).days,
+          };
+
+          // Ensure all days exist
+          if (!settledParsed.days) {
+            settledParsed.days = createInitialWeekData(getToday()).days;
+          } else {
+            const defaultDays = createInitialWeekData(getToday()).days;
+            DAYS_OF_WEEK.forEach((day) => {
+              if (!settledParsed.days[day]) {
+                settledParsed.days[day] = defaultDays[day];
+              }
+            });
+          }
+
+          // CRITICAL: Deduplicate tasks to prevent duplicate buttons
+          settledParsed.days = deduplicateWeekDays(settledParsed.days);
+
+          // CRITICAL: Save deduped data back to DB to clean up existing duplicates
+          await supabase
+            .from("weeks")
+            .update({ days: settledParsed.days })
+            .eq("user_id", user.id)
+            .eq("week_id", settledWeekData.week_id);
+
+          const snapshotData: CurrentWeekData = JSON.parse(
+            JSON.stringify(settledParsed),
+          );
+          setSettledWeekSnapshot(snapshotData);
+          setIsReadOnly(true);
+          setCurrentWeek(snapshotData);
+        } else {
+          // First time - create new week
+          const freshWeek = createInitialWeekData(getToday());
+          setCurrentWeek(freshWeek);
+          await saveWeekToSupabase(freshWeek, false);
+        }
+      }
       // Load history
       const { data: archiveData, error: archiveError } = await supabase
         .from("archive")
@@ -460,8 +472,13 @@ export function useHabitState() {
   const saveWeekToSupabase = async (
     week: CurrentWeekData,
     isSettled?: boolean,
+    targetUserId?: string, // Optional: specify which user's record to save to
   ) => {
     if (!user) return;
+
+    // CRITICAL: Use targetUserId if provided (for parent approving child's tasks),
+    // otherwise use the logged-in user's ID
+    const userIdToSave = targetUserId || user.id;
 
     // CRITICAL: Deduplicate tasks before saving to prevent duplicate entries in DB
     const dedupedWeek = {
@@ -491,14 +508,14 @@ export function useHabitState() {
     const { data: updateData, error: updateError } = await supabase
       .from("weeks")
       .update(updatePayload)
-      .eq("user_id", user.id)
+      .eq("user_id", userIdToSave)
       .eq("week_id", week.weekId)
       .select();
 
     // If no rows were updated, insert new record
     if (updateError || !updateData || updateData.length === 0) {
       const insertPayload: Record<string, any> = {
-        user_id: user.id,
+        user_id: userIdToSave,
         week_id: dedupedWeek.weekId,
         start_date: dedupedWeek.startDate,
         end_date: dedupedWeek.endDate,
@@ -520,17 +537,18 @@ export function useHabitState() {
     }
   };
 
-  // Archive a week
-  const archiveWeek = async (week: CurrentWeekData) => {
+  // Archive a week - accepts optional targetUserId for child data
+  const archiveWeek = async (week: CurrentWeekData, targetUserId?: string) => {
     if (!user) return;
 
+    const userIdToArchive = targetUserId || user.id;
     const score = calculateWeekScore(week);
     const { grade, reward } = calculateGradeAndReward(score);
     const approvedCount = getApprovedCount(week);
     const totalCount = getTotalCount(week);
 
     const { error } = await supabase.from("archive").upsert({
-      user_id: user.id,
+      user_id: userIdToArchive,
       week_id: week.weekId,
       start_date: week.startDate,
       end_date: week.endDate,
@@ -549,12 +567,258 @@ export function useHabitState() {
   // Note: Realtime subscription removed to prevent "cannot add callbacks after subscribe" error
   // Data sync is handled by AppState listener and tab focus
 
-  // Load data on mount and auth change (only once)
+  // Load data for a specific child (parent mode)
+  const loadChildData = async (childId: string, forceRefresh = false) => {
+    if (!user || user.role !== "parent") return;
+
+    // CRITICAL: If we already have settledWeekSnapshot and not force refresh,
+    // don't reload - this prevents the snapshot from being overwritten
+    // However, we still need to check if the child's week is now unsettled
+    // (e.g., after parent cancels settlement in another tab)
+    if (!forceRefresh && settledWeekSnapshot) {
+      // Check if the child's week is still settled in DB
+      const { data: checkSettled } = await supabase
+        .from("weeks")
+        .select("is_settled")
+        .eq("user_id", childId)
+        .eq("week_id", settledWeekSnapshot.weekId)
+        .eq("is_settled", true)
+        .maybeSingle();
+
+      if (checkSettled) {
+        console.log(
+          "[loadChildData] Child week still settled in DB, keeping snapshot",
+        );
+        setIsLoading(false);
+        return;
+      }
+      // If not settled anymore, clear the snapshot and continue loading fresh data
+      console.log(
+        "[loadChildData] Child week no longer settled, clearing snapshot and reloading",
+      );
+      setSettledWeekSnapshot(null);
+      setIsReadOnly(false);
+    }
+
+    setIsLoading(true);
+    try {
+      // Load child's current (non-settled) week FIRST
+      const { data: weekData, error: weekError } = await supabase
+        .from("weeks")
+        .select("*")
+        .eq("user_id", childId)
+        .eq("is_settled", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Force refresh if needed
+      if (forceRefresh && !weekData) {
+        console.log(
+          "[loadChildData] Force refresh - no data found, retrying...",
+        );
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const { data: retryData } = await supabase
+          .from("weeks")
+          .select("*")
+          .eq("user_id", childId)
+          .eq("is_settled", false)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (retryData) {
+          console.log("[loadChildData] Retry successful");
+        }
+      }
+
+      if (weekError) {
+        console.error("Error loading child's week:", weekError);
+      }
+
+      if (weekData) {
+        let parsedWeek: CurrentWeekData = {
+          weekId: weekData.week_id,
+          startDate: weekData.start_date,
+          endDate: weekData.end_date,
+          days: weekData.days || createInitialWeekData(getToday()).days,
+        };
+
+        if (!parsedWeek.days) {
+          parsedWeek.days = createInitialWeekData(getToday()).days;
+        } else {
+          const defaultDays = createInitialWeekData(getToday()).days;
+          DAYS_OF_WEEK.forEach((day) => {
+            if (!parsedWeek.days[day]) {
+              parsedWeek.days[day] = defaultDays[day];
+            }
+          });
+        }
+
+        parsedWeek.days = deduplicateWeekDays(parsedWeek.days);
+        setCurrentWeek(parsedWeek);
+        // CRITICAL: Child's non-settled week - parent can see it as child sees it (editable)
+        setIsReadOnly(false);
+        setSettledWeekSnapshot(null);
+      } else {
+        // No non-settled week found - check if there's a SETTLED week
+        const { data: settledWeekData, error: settledWeekError } =
+          await supabase
+            .from("weeks")
+            .select("*")
+            .eq("user_id", childId)
+            .eq("is_settled", true)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (settledWeekError) {
+          console.error(
+            "Error loading child's settled week:",
+            settledWeekError,
+          );
+        }
+
+        if (settledWeekData) {
+          // Child's week is settled - show as read-only
+          let settledParsed: CurrentWeekData = {
+            weekId: settledWeekData.week_id,
+            startDate: settledWeekData.start_date,
+            endDate: settledWeekData.end_date,
+            days:
+              settledWeekData.days || createInitialWeekData(getToday()).days,
+          };
+
+          if (!settledParsed.days) {
+            settledParsed.days = createInitialWeekData(getToday()).days;
+          } else {
+            const defaultDays = createInitialWeekData(getToday()).days;
+            DAYS_OF_WEEK.forEach((day) => {
+              if (!settledParsed.days[day]) {
+                settledParsed.days[day] = defaultDays[day];
+              }
+            });
+          }
+
+          settledParsed.days = deduplicateWeekDays(settledParsed.days);
+          const snapshotData: CurrentWeekData = JSON.parse(
+            JSON.stringify(settledParsed),
+          );
+          setSettledWeekSnapshot(snapshotData);
+          setIsReadOnly(true);
+          setCurrentWeek(snapshotData);
+        } else {
+          // No data at all for this child
+          setCurrentWeek(null);
+          setIsReadOnly(false);
+          setSettledWeekSnapshot(null);
+        }
+      }
+
+      // Load child's archive
+      const { data: archiveData, error: archiveError } = await supabase
+        .from("archive")
+        .select("*")
+        .eq("user_id", childId)
+        .order("created_at", { ascending: false });
+
+      if (archiveError) {
+        console.error("Error loading child's archive:", archiveError);
+      } else if (archiveData) {
+        const parsedHistory: ArchiveEntry[] = archiveData.map((item) => ({
+          id: item.week_id,
+          startDate: item.start_date,
+          endDate: item.end_date,
+          score: item.score,
+          grade: item.grade as ArchiveEntry["grade"],
+          reward: item.reward,
+          approvedCount: item.approved_count,
+          totalCount: item.total_count,
+        }));
+        setHistory(parsedHistory);
+      }
+    } catch (error) {
+      console.error("Failed to load child data:", error);
+    } finally {
+      setIsLoading(false);
+      isLoadingRef.current = false;
+    }
+  };
+
+  // Load children list for parent
+  const loadChildrenList = useCallback(async () => {
+    if (!user || user.role !== "parent") return;
+
+    try {
+      const { data, error } = await supabase.rpc("get_children");
+
+      if (error) {
+        console.error("Error loading children:", error);
+        return;
+      }
+
+      if (data) {
+        setChildren(
+          data.map((child: any) => ({
+            id: child.id,
+            display_name: child.display_name,
+            email: child.email,
+          })),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to load children list:", error);
+    }
+  }, [user]);
+
+  // Select a child to view (parent mode)
+  const selectChild = async (childId: string) => {
+    setSelectedChildId(childId);
+    localStorage.setItem("selectedChildId", childId); // Save to localStorage
+    await loadChildData(childId, true); // Force refresh to get latest data
+  };
+
+  // Exit child view and return to parent's own data
+  const exitChildView = async () => {
+    setSelectedChildId(null);
+    localStorage.removeItem("selectedChildId"); // Remove from localStorage
+    setCurrentWeek(null);
+    setHistory([]);
+    setIsReadOnly(false);
+    setSettledWeekSnapshot(null);
+
+    // Reload parent's own data after exiting child view
+    // This ensures parent sees their latest data, not stale cached data
+    await loadData(true);
+  };
+
+  // Load data on mount and auth change (only once per user)
   const initialLoadDoneRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
   useEffect(() => {
+    // Reset the flag when user changes (different person logging in)
+    if (user && user.id !== lastUserIdRef.current) {
+      lastUserIdRef.current = user.id;
+      initialLoadDoneRef.current = false;
+    }
+
     if (user && !initialLoadDoneRef.current) {
       initialLoadDoneRef.current = true;
-      loadData();
+
+      // If parent has a saved child, skip loadData (child data will be loaded by localStorage effect)
+      // This prevents parent's own data from overwriting child data on initial load
+      const savedChildId = localStorage.getItem("selectedChildId");
+      if (user.role === "parent" && savedChildId) {
+        // loadChildData is already called by the localStorage effect above
+        // Only load children list
+        loadChildrenList();
+      } else {
+        loadData();
+        // If parent, load children list
+        if (user.role === "parent") {
+          loadChildrenList();
+        }
+      }
     }
   }, [user]);
 
@@ -567,6 +831,17 @@ export function useHabitState() {
     await loadDataRef.current(forceRefresh);
   }, []);
 
+  // Refresh child data when screen comes into focus
+  const refreshChildData = useCallback(async () => {
+    if (selectedChildId) {
+      console.log(
+        "[refreshChildData] Refreshing child data for:",
+        selectedChildId,
+      );
+      await loadChildData(selectedChildId, true);
+    }
+  }, [selectedChildId]);
+
   // App focus listener
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -577,7 +852,12 @@ export function useHabitState() {
         nextAppState === "active"
       ) {
         if (!isClearingDataRef.current) {
-          await loadData();
+          // If viewing child data, refresh child data specifically
+          if (selectedChildId) {
+            await refreshChildData();
+          } else {
+            await loadData();
+          }
         }
       }
       appStateRef.current = nextAppState;
@@ -591,7 +871,7 @@ export function useHabitState() {
     return () => {
       subscription.remove();
     };
-  }, []);
+  }, [selectedChildId, refreshChildData]);
 
   const setSimulatedDay = (day: DayOfWeek) => {
     setSimulatedDayState(day);
@@ -661,7 +941,9 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    // CRITICAL: Save to child's record if parent is viewing child data
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const uncheckTask = async (day: DayOfWeek, taskId: string) => {
@@ -684,7 +966,9 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    // CRITICAL: Save to child's record if parent is viewing child data
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const approveTask = async (
@@ -711,7 +995,9 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    // CRITICAL: Save to child's record if parent is viewing child data
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const partialApproveTask = async (
@@ -738,7 +1024,9 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    // CRITICAL: Save to child's record if parent is viewing child data
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const rejectTask = async (day: DayOfWeek, taskId: string) => {
@@ -761,7 +1049,9 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    // CRITICAL: Save to child's record if parent is viewing child data
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const updateMultipleTasks = async (
@@ -796,23 +1086,33 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    // CRITICAL: Save to child's record if parent is viewing child data
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
-  const addSpecialTask = async (day: DayOfWeek, name: string) => {
+  const addSpecialTask = async (
+    day: DayOfWeek,
+    name: string,
+    points?: number,
+    category?: TaskCategory,
+  ) => {
     if (isReadOnly || !currentWeek || !name.trim()) return;
     const updatedDays = { ...currentWeek.days };
     const newId = `special_${Date.now()}`;
     const newTask: TaskItem = {
       id: newId,
       name: name.trim(),
-      category: "특별",
-      points: 5,
-      status: "pending",
-      checkedAt: new Date().toISOString(),
+      category: category ?? "특별",
+      points: points ?? 5,
+      status: "unchecked",
     };
 
-    updatedDays[day] = [...updatedDays[day], newTask];
+    // Add the task to all days
+    DAYS_OF_WEEK.forEach((d) => {
+      updatedDays[d] = [...updatedDays[d], { ...newTask }];
+    });
+
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
     await saveWeekToSupabase(updatedWeek);
@@ -821,7 +1121,34 @@ export function useHabitState() {
   const deleteSpecialTask = async (day: DayOfWeek, taskId: string) => {
     if (isReadOnly || !currentWeek) return;
     const updatedDays = { ...currentWeek.days };
-    updatedDays[day] = updatedDays[day].filter((task) => task.id !== taskId);
+
+    // Delete the task from all days
+    DAYS_OF_WEEK.forEach((d) => {
+      updatedDays[d] = updatedDays[d].filter((task) => task.id !== taskId);
+    });
+
+    const updatedWeek = { ...currentWeek, days: updatedDays };
+    setCurrentWeek(updatedWeek);
+    await saveWeekToSupabase(updatedWeek);
+  };
+
+  const updateSpecialTask = async (
+    taskId: string,
+    name: string,
+    points: number,
+  ) => {
+    if (isReadOnly || !currentWeek) return;
+    const updatedDays = { ...currentWeek.days };
+
+    // Update the task in all days
+    DAYS_OF_WEEK.forEach((day) => {
+      updatedDays[day] = updatedDays[day].map((task) => {
+        if (task.id === taskId) {
+          return { ...task, name: name.trim(), points };
+        }
+        return task;
+      });
+    });
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
@@ -842,10 +1169,12 @@ export function useHabitState() {
 
     // CRITICAL: Check if this week is already settled in DB
     // Prevents duplicate settlements on repeated calls
+    // Use selectedChildId if viewing child data, otherwise use user.id
+    const targetUserId = selectedChildId || user!.id;
     const { data: existingSettled } = await supabase
       .from("weeks")
       .select("week_id")
-      .eq("user_id", user!.id)
+      .eq("user_id", targetUserId)
       .eq("week_id", currentWeek.weekId)
       .eq("is_settled", true)
       .maybeSingle();
@@ -855,12 +1184,20 @@ export function useHabitState() {
         `[forceWeeklyReset] Week ${currentWeek.weekId} already settled in DB, skipping duplicate settlement`,
       );
 
-      // CRITICAL: Clear stale snapshot to prevent duplicate display
-      setSettledWeekSnapshot(null);
-      setIsReadOnly(false);
+      // CRITICAL: The week is already settled - ensure isReadOnly is true
+      // This allows the "주간정산 완료" banner to show correctly
+      const snapshotData: CurrentWeekData = JSON.parse(
+        JSON.stringify(currentWeek),
+      );
+      setSettledWeekSnapshot(snapshotData);
+      setIsReadOnly(true);
 
       // Trigger a fresh load from DB to get the correct settled week data
-      await loadData(true);
+      if (selectedChildId) {
+        await loadChildData(selectedChildId, true);
+      } else {
+        await loadData(true);
+      }
       return;
     }
 
@@ -869,15 +1206,16 @@ export function useHabitState() {
     const approvedCount = getApprovedCount(currentWeek);
     const totalCount = getTotalCount(currentWeek);
 
-    // Archive current week
-    await archiveWeek(currentWeek);
+    // Archive current week - use targetUserId to save to correct user's archive
+    await archiveWeek(currentWeek, targetUserId);
 
     // Reload history to show the newly archived week
+    // Use targetUserId to query the correct user's archive
     if (user) {
       const { data: archiveData, error: archiveError } = await supabase
         .from("archive")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", targetUserId)
         .order("created_at", { ascending: false });
 
       if (archiveError) {
@@ -905,17 +1243,20 @@ export function useHabitState() {
     setIsReadOnly(true);
 
     // Update the week's is_settled flag in DB
-    await saveWeekToSupabase(currentWeek, true);
+    await saveWeekToSupabase(currentWeek, true, targetUserId);
 
     // Create new week (ONLY save to local state, NOT to DB yet)
     // This prevents the fresh week from being inserted into DB prematurely
     // When the user loads the app next time, a new week will be created from scratch
-    const nextWeekDate = new Date();
+    const nextWeekDate = getToday();
     const currentStartDate = new Date(currentWeek.startDate);
     nextWeekDate.setTime(currentStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const freshWeek = createInitialWeekData(nextWeekDate);
     setCurrentWeek(freshWeek);
+    setIsReadOnly(false);
+    // Save the fresh week to DB immediately
+    await saveWeekToSupabase(freshWeek, false, targetUserId);
   };
 
   const clearAllData = async () => {
@@ -953,7 +1294,7 @@ export function useHabitState() {
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       // Reset all state
-      const freshWeek = createInitialWeekData(new Date());
+      const freshWeek = createInitialWeekData(getToday());
       setCurrentWeek(freshWeek);
       setHistory([]);
       setSimulatedDayState(getRealDayOfWeek());
@@ -1032,13 +1373,15 @@ export function useHabitState() {
       setIsReadOnly(false);
 
       // Delete the archive entry for ONLY this specific week
+      // Use selectedChildId if viewing child data, otherwise use user.id
+      const targetUserId = selectedChildId || user.id;
       console.log(
         `[restoreSettledWeek] Deleting archive entry for weekId=${settledWeekSnapshot.weekId}`,
       );
       const { data: deleteData, error: deleteError } = await supabase
         .from("archive")
         .delete()
-        .eq("user_id", user.id)
+        .eq("user_id", targetUserId)
         .eq("week_id", settledWeekSnapshot.weekId)
         .select();
 
@@ -1052,7 +1395,7 @@ export function useHabitState() {
       const { error: clearSettledError } = await supabase
         .from("weeks")
         .update({ is_settled: false })
-        .eq("user_id", user.id)
+        .eq("user_id", targetUserId)
         .eq("week_id", restoredWeek.weekId);
 
       if (clearSettledError) {
@@ -1060,7 +1403,7 @@ export function useHabitState() {
       }
 
       // Update the week in the DB: restore data AND clear is_settled flag
-      await saveWeekToSupabase(restoredWeek, false);
+      await saveWeekToSupabase(restoredWeek, false, targetUserId);
 
       // Set the restored week as current (don't reload from DB to avoid stale data)
       setCurrentWeek(restoredWeek);
@@ -1098,16 +1441,20 @@ export function useHabitState() {
   const currentScore = useMemo(() => calculateWeekScore(), [currentWeek]);
   const currentGradeInfo = calculateGradeAndReward(currentScore);
 
+  // CRITICAL: childViewWeek should use settledWeekSnapshot if it exists,
+  // regardless of isReadOnly timing. This ensures settled week is shown correctly
+  // when parent views child's data after settlement.
   const childViewWeek = useMemo(() => {
-    const source =
-      isReadOnly && settledWeekSnapshot ? settledWeekSnapshot : currentWeek;
+    // If settledWeekSnapshot exists, use it (read-only settled week)
+    // Otherwise use currentWeek
+    const source = settledWeekSnapshot || currentWeek;
     if (!source) return null;
     // CRITICAL: Deduplicate before rendering to prevent duplicate buttons
     return {
       ...source,
       days: deduplicateWeekDays(source.days),
     };
-  }, [isReadOnly, settledWeekSnapshot, currentWeek]);
+  }, [settledWeekSnapshot, currentWeek]);
 
   const childScore = useMemo(
     () => calculateWeekScore(childViewWeek),
@@ -1139,9 +1486,18 @@ export function useHabitState() {
     updateMultipleTasks,
     addSpecialTask,
     deleteSpecialTask,
+    updateSpecialTask,
     forceWeeklyReset,
     restoreSettledWeek,
     clearAllData,
     refreshData,
+    refreshChildData,
+    // Parent mode functions
+    children,
+    selectedChildId,
+    selectChild,
+    exitChildView,
+    loadChildrenList,
+    loadChildData,
   };
 }

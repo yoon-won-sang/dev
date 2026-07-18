@@ -30,6 +30,11 @@ export default function AppTabs() {
               <TabButton>검수 & 정산</TabButton>
             </TabTrigger>
           )}
+          {isAdmin && (
+            <TabTrigger name="parent-quests" href="/parent-quests" asChild>
+              <TabButton>퀘스트 관리</TabButton>
+            </TabTrigger>
+          )}
         </CustomTabList>
       </TabList>
     </Tabs>

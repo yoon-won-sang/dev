@@ -1,3 +1,4 @@
+import { ParentChildSelector } from "@/components/parent-child-selector";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
@@ -477,12 +478,14 @@ const PROVERBS: { en: string; ko: string }[] = [
 
 export default function HabitChecklistScreen() {
   const theme = useTheme();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const {
     childViewWeek,
+    currentWeek,
     simulatedDay,
     isLoading,
     isReadOnly,
+    selectedChildId,
     childScore,
     childGrade,
     childReward,
@@ -492,6 +495,10 @@ export default function HabitChecklistScreen() {
     addSpecialTask,
     deleteSpecialTask,
     refreshData,
+    refreshChildData,
+    children,
+    selectChild,
+    settledWeekSnapshot,
   } = useHabitState();
 
   const [specialTaskName, setSpecialTaskName] = useState("");
@@ -500,20 +507,48 @@ export default function HabitChecklistScreen() {
     Math.floor(Math.random() * PROVERBS.length),
   );
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [showChildSelector, setShowChildSelector] = useState(false);
 
-  // Refresh data when this tab gains focus (e.g. after parent approves tasks)
-  // forceRefresh=true bypasses the 3-second cooldown guard in loadData
-  // CRITICAL: isReadOnly로 한 번 들어가면 더 이상 호출하지 않음 (무한루프 방지)
-  const isReadOnlyRef = React.useRef(isReadOnly);
-  isReadOnlyRef.current = isReadOnly;
+  // Determine which week data to display
+  // - If parent has selected a child, show child's data
+  // - Otherwise, show current user's own data
+  const displayWeek = selectedChildId ? childViewWeek : currentWeek;
 
+  // CRITICAL: effectiveIsReadOnly should only be true when:
+  // - Parent is viewing child's SETTLED data (selectedChildId is set AND settledWeekSnapshot exists)
+  // - OR user is viewing their OWN settled data (not viewing child AND isReadOnly is true)
+  // This ensures parent sees child's screen as child sees it (editable if not settled)
+  // When settledWeekSnapshot exists and we have data to display, show the read-only banner
+  const effectiveIsReadOnly = !!(
+    ((selectedChildId && settledWeekSnapshot) || // Parent viewing child's settled data
+      (!selectedChildId && isReadOnly)) && // User viewing their own settled data
+    (selectedChildId ? childViewWeek : currentWeek)
+  );
+
+  // Refresh data when this tab gains focus
+  // CRITICAL: Always refresh to get latest data, even in read-only mode
+  // The loadChildData function now checks DB settlement status to handle cross-tab sync
   useFocusEffect(
     React.useCallback(() => {
-      // Once in readOnly mode, never refresh again (prevents infinite loop)
-      if (isReadOnlyRef.current) return;
-      refreshData(); // Don't force refresh - let the cooldown handle dedup
-    }, [refreshData]),
+      // If viewing as parent with selected child, refresh child data
+      if (selectedChildId) {
+        refreshChildData();
+      } else {
+        refreshData(); // Don't force refresh - let the cooldown handle dedup
+      }
+    }, [refreshData, refreshChildData, selectedChildId]),
   );
+
+  // Auto-show child selector when parent logs in and has no child selected
+  React.useEffect(() => {
+    if (user?.role === "parent" && !selectedChildId && children.length > 0) {
+      // Small delay to let the screen load first
+      const timer = setTimeout(() => {
+        setShowChildSelector(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user, selectedChildId, children]);
 
   // Sync active day with simulated day when it changes
   React.useEffect(() => {
@@ -542,7 +577,126 @@ export default function HabitChecklistScreen() {
     return () => clearInterval(interval);
   }, [fadeAnim]);
 
-  if (isLoading || !childViewWeek) {
+  // Handle child selection
+  const handleSelectChild = (childId: string) => {
+    selectChild(childId);
+    setShowChildSelector(false);
+  };
+
+  // Show child selector modal first, before any loading check
+  if (showChildSelector) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.modalOverlay}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.background,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText type="subtitle" style={styles.modalTitle}>
+                자녀 선택
+              </ThemedText>
+              <Pressable
+                onPress={() => setShowChildSelector(false)}
+                style={[
+                  styles.modalCloseButton,
+                  {
+                    backgroundColor: theme.backgroundSelected,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.modalCloseText,
+                    {
+                      color: theme.text,
+                    },
+                  ]}
+                >
+                  ✕
+                </ThemedText>
+              </Pressable>
+            </View>
+            <ParentChildSelector
+              onSelectChild={handleSelectChild}
+              onBack={() => setShowChildSelector(false)}
+            />
+          </View>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  // Show message if parent hasn't selected a child
+  const showChildSelectionMessage = user?.role === "parent" && !selectedChildId;
+
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.loadingContainer}>
+        <ThemedText style={styles.loadingText}>
+          데이터를 불러오는 중입니다... ⏳
+        </ThemedText>
+      </ThemedView>
+    );
+  }
+
+  if (showChildSelectionMessage) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <View>
+                <ThemedText
+                  themeColor="textSecondary"
+                  style={styles.greetingText}
+                >
+                  👨👩 부모 모드
+                </ThemedText>
+                <ThemedText type="subtitle" style={styles.profileName}>
+                  자녀 선택이 필요합니다
+                </ThemedText>
+              </View>
+            </View>
+
+            <ThemedView type="backgroundElement" style={styles.emptyStateCard}>
+              <ThemedText style={styles.emptyEmoji}>👋</ThemedText>
+              <ThemedText style={styles.emptyTitle}>
+                선택한 자녀가 없습니다
+              </ThemedText>
+              <ThemedText
+                themeColor="textSecondary"
+                style={styles.emptyDescription}
+              >
+                자녀의 습관 목록을 보려면, 먼저 자녀를 선택해주세요.
+              </ThemedText>
+              <Pressable
+                onPress={() => setShowChildSelector(true)}
+                style={({ pressed }) => [
+                  styles.childSelectorBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.childSelectorBtnText}>
+                  👨👩 자녀 선택
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          </ScrollView>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
+  if (!displayWeek) {
     return (
       <ThemedView style={styles.loadingContainer}>
         <ThemedText style={styles.loadingText}>
@@ -553,11 +707,12 @@ export default function HabitChecklistScreen() {
   }
 
   const days: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
-  const tasksForSelectedDay = childViewWeek?.days?.[activeDay] || [];
+  const tasksForSelectedDay = displayWeek?.days?.[activeDay] || [];
 
   const showReadOnlyAlert = () => {
-    const message =
-      "주간 정산이 완료되어 더 이상 수정할 수 없어요. 최종 결과만 확인할 수 있습니다! 🔒";
+    const message = selectedChildId
+      ? "이 주간은 정산이 완료되어 열람만 가능합니다. 🔒"
+      : "주간 정산이 완료되어 더 이상 수정할 수 없어요. 최종 결과만 확인할 수 있습니다! 🔒";
     if (Platform.OS === "web") {
       alert(message);
     } else {
@@ -566,7 +721,7 @@ export default function HabitChecklistScreen() {
   };
 
   const handleToggleTask = (task: TaskItem) => {
-    if (isReadOnly) {
+    if (effectiveIsReadOnly) {
       showReadOnlyAlert();
       return;
     }
@@ -611,7 +766,7 @@ export default function HabitChecklistScreen() {
   });
 
   const handleAddSpecial = () => {
-    if (isReadOnly) {
+    if (effectiveIsReadOnly) {
       showReadOnlyAlert();
       return;
     }
@@ -668,36 +823,57 @@ export default function HabitChecklistScreen() {
                 themeColor="textSecondary"
                 style={styles.greetingText}
               >
-                {isReadOnly
-                  ? "이번 주 정산이 완료되었어요! 🎉"
-                  : "오늘도 성실하게! 🌱"}
+                {selectedChildId
+                  ? "👨👩 자녀 모드"
+                  : isReadOnly
+                    ? "이번 주 정산이 완료되었어요! 🎉"
+                    : "오늘도 성실하게! 🌱"}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
-                {isReadOnly ? "최종결과 확인 🔒" : "지우의 습관기록"}
+                {selectedChildId
+                  ? `${children.find((c) => c.id === selectedChildId)?.display_name || "자녀"}의 습관기록`
+                  : isReadOnly
+                    ? "최종결과 확인 🔒"
+                    : "지우의 습관기록"}
               </ThemedText>
             </View>
-            <View style={styles.headerRight}>
-              <View
-                style={[
-                  styles.badgeContainer,
-                  { backgroundColor: theme.backgroundElement },
-                ]}
-              >
-                <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
-                <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
-              </View>
-              <Pressable
-                onPress={handleLogout}
-                style={({ pressed }) => [
-                  styles.logoutBtn,
-                  { opacity: pressed ? 0.7 : 1 },
-                ]}
-              >
-                <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
-              </Pressable>
-            </View>
           </View>
-          {isReadOnly && (
+
+          {/* Action Buttons Row */}
+          <View style={styles.actionRow}>
+            {user?.role === "parent" && (
+              <Pressable
+                onPress={() => setShowChildSelector(true)}
+                style={({ pressed }) => [
+                  styles.childSelectorBtn,
+                  { opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText style={styles.childSelectorBtnText}>
+                  👨‍👩‍👧‍👦 자녀 선택
+                </ThemedText>
+              </Pressable>
+            )}
+            <View
+              style={[
+                styles.badgeContainer,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
+              <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
+            </View>
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.logoutBtn,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
+            </Pressable>
+          </View>
+          {effectiveIsReadOnly && displayWeek && (
             <ThemedView type="backgroundElement" style={styles.readOnlyBanner}>
               <ThemedText style={styles.readOnlyBannerTitle}>
                 주간 정산 완료 — 열람 전용
@@ -706,8 +882,8 @@ export default function HabitChecklistScreen() {
                 themeColor="textSecondary"
                 style={styles.readOnlyBannerText}
               >
-                {childViewWeek.startDate} ~ {childViewWeek.endDate} 최종
-                결과입니다. 새로운 주가 시작되면 다시 기록할 수 있어요.
+                {displayWeek.startDate} ~ {displayWeek.endDate} 최종 결과입니다.
+                새로운 주가 시작되면 다시 기록할 수 있어요.
               </ThemedText>
             </ThemedView>
           )}
@@ -720,7 +896,7 @@ export default function HabitChecklistScreen() {
                 themeColor="textSecondary"
                 style={styles.proverbLabel}
               >
-                오늘의 말씀
+                오늘의 격언
               </ThemedText>
             </View>
             <Animated.View style={{ opacity: fadeAnim }}>
@@ -788,9 +964,9 @@ export default function HabitChecklistScreen() {
               const isActive = activeDay === d;
               const isSimToday = simulatedDay === d;
               // Calculate the actual date for this day based on week's startDate (Monday)
-              const dayDate = childViewWeek?.startDate
+              const dayDate = displayWeek?.startDate
                 ? (() => {
-                    const date = new Date(childViewWeek.startDate);
+                    const date = new Date(displayWeek.startDate);
                     date.setDate(date.getDate() + idx);
                     return `${date.getMonth() + 1}/${date.getDate()}`;
                   })()
@@ -895,13 +1071,13 @@ export default function HabitChecklistScreen() {
                       <Pressable
                         key={task.id}
                         onPress={() => handleToggleTask(task)}
-                        disabled={isReadOnly}
+                        disabled={effectiveIsReadOnly}
                         style={({ pressed }) => [
                           styles.taskRow,
                           {
                             borderBottomColor: theme.backgroundSelected,
                             borderBottomWidth: idx === list.length - 1 ? 0 : 1,
-                            opacity: isReadOnly
+                            opacity: effectiveIsReadOnly
                               ? 0.85
                               : pressed && task.status !== "approved"
                                 ? 0.7
@@ -977,7 +1153,7 @@ export default function HabitChecklistScreen() {
                               style={[
                                 styles.statusBtn,
                                 {
-                                  backgroundColor: isReadOnly
+                                  backgroundColor: effectiveIsReadOnly
                                     ? theme.backgroundSelected
                                     : "#6366F1",
                                 },
@@ -987,13 +1163,13 @@ export default function HabitChecklistScreen() {
                                 style={[
                                   styles.statusBtnText,
                                   {
-                                    color: isReadOnly
+                                    color: effectiveIsReadOnly
                                       ? theme.textSecondary
                                       : "#FFFFFF",
                                   },
                                 ]}
                               >
-                                {isReadOnly ? "미완료" : "완료하기"}
+                                {effectiveIsReadOnly ? "미완료" : "완료하기"}
                               </ThemedText>
                             </View>
                           )}
@@ -1060,48 +1236,50 @@ export default function HabitChecklistScreen() {
                               </ThemedText>
                             </View>
                           )}
-                          {task.status === "rejected" && !isReadOnly && (
-                            <View
-                              style={[
-                                styles.statusBtn,
-                                {
-                                  backgroundColor: "rgba(239, 68, 68, 0.12)",
-                                  borderWidth: 1,
-                                  borderColor: "#EF4444",
-                                },
-                              ]}
-                            >
-                              <ThemedText
+                          {task.status === "rejected" &&
+                            !effectiveIsReadOnly && (
+                              <View
                                 style={[
-                                  styles.statusBtnText,
-                                  { color: "#DC2626" },
+                                  styles.statusBtn,
+                                  {
+                                    backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                    borderWidth: 1,
+                                    borderColor: "#EF4444",
+                                  },
                                 ]}
                               >
-                                ✕ 다시하기
-                              </ThemedText>
-                            </View>
-                          )}
-                          {task.status === "rejected" && isReadOnly && (
-                            <View
-                              style={[
-                                styles.statusBtn,
-                                {
-                                  backgroundColor: "rgba(239, 68, 68, 0.12)",
-                                  borderWidth: 1,
-                                  borderColor: "#EF4444",
-                                },
-                              ]}
-                            >
-                              <ThemedText
+                                <ThemedText
+                                  style={[
+                                    styles.statusBtnText,
+                                    { color: "#DC2626" },
+                                  ]}
+                                >
+                                  ✕ 다시하기
+                                </ThemedText>
+                              </View>
+                            )}
+                          {task.status === "rejected" &&
+                            effectiveIsReadOnly && (
+                              <View
                                 style={[
-                                  styles.statusBtnText,
-                                  { color: "#DC2626" },
+                                  styles.statusBtn,
+                                  {
+                                    backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                    borderWidth: 1,
+                                    borderColor: "#EF4444",
+                                  },
                                 ]}
                               >
-                                ❌ 반려됨
-                              </ThemedText>
-                            </View>
-                          )}
+                                <ThemedText
+                                  style={[
+                                    styles.statusBtnText,
+                                    { color: "#DC2626" },
+                                  ]}
+                                >
+                                  ❌ 반려됨
+                                </ThemedText>
+                              </View>
+                            )}
                           {/* {task.status === "partially_approved" &&
                             isReadOnly && (
                               <View
@@ -1124,7 +1302,7 @@ export default function HabitChecklistScreen() {
                                 </ThemedText>
                               </View>
                             )} */}
-                          {!isReadOnly &&
+                          {!effectiveIsReadOnly &&
                             task.category === "특별" &&
                             task.status !== "approved" && (
                               <Pressable
@@ -1149,7 +1327,7 @@ export default function HabitChecklistScreen() {
           })}
 
           {/* Propose Special Quest Card */}
-          {!isReadOnly && (
+          {!effectiveIsReadOnly && (
             <View style={styles.categorySection}>
               <View style={styles.categoryHeader}>
                 <View
@@ -1232,10 +1410,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: Spacing.three,
   },
-  headerRight: {
+  actionRow: {
     flexDirection: "row",
+    justifyContent: "flex-end",
     alignItems: "center",
     gap: Spacing.two,
+    marginBottom: Spacing.two,
   },
   greetingText: {
     fontSize: 13,
@@ -1264,6 +1444,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  childSelectorBtn: {
+    backgroundColor: "#6366F1",
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 8,
+  },
+  childSelectorBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   logoutBtn: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1283,6 +1474,46 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.four,
+    zIndex: 1000,
+  },
+  modalContent: {
+    borderRadius: 20,
+    padding: Spacing.four,
+    width: "100%",
+    maxHeight: "80%",
+    maxWidth: 500,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.three,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCloseText: {
+    fontSize: 18,
+    fontWeight: "700",
   },
   readOnlyBanner: {
     borderRadius: 16,
@@ -1693,5 +1924,46 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
+  },
+  emptyStateCard: {
+    borderRadius: 20,
+    padding: Spacing.five,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.four,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  emptyEmoji: {
+    fontSize: 48,
+    marginBottom: Spacing.three,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: Spacing.two,
+    textAlign: "center",
+  },
+  emptyDescription: {
+    fontSize: 14,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: Spacing.two,
+  },
+  emptyHint: {
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#6366F1",
   },
 });

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
 import { AppState, AppStateStatus, Platform } from "react-native";
 
+import { getToday, getRealDayOfWeek } from "@/constants/date";
 export type DayOfWeek = "월" | "화" | "수" | "목" | "금" | "토" | "일";
 export type TaskCategory = "생활" | "가사" | "태도" | "건강" | "특별";
 export type TaskStatus =
@@ -155,11 +156,7 @@ export function createInitialWeekData(date: Date): CurrentWeekData {
   };
 }
 
-export const getRealDayOfWeek = (): DayOfWeek => {
-  const day = new Date().getDay(); // 0 is Sunday, 1 is Monday ...
-  if (day === 0) return "일";
-  return DAYS_OF_WEEK[day - 1];
-};
+export { getRealDayOfWeek } from "@/constants/date";
 
 const STORAGE_KEYS = {
   CURRENT_WEEK: "@habit_tracker_current_week",
@@ -249,7 +246,7 @@ export function useHabitState() {
       );
 
       // Load current week
-      const today = new Date();
+      const today = getToday();
       const currentRange = getWeekRange(today);
       let activeWeek: CurrentWeekData | null = null;
 
@@ -723,7 +720,7 @@ export function useHabitState() {
     setIsReadOnly(true);
 
     // Create new week with next week's date (+7 days)
-    const nextWeekDate = new Date();
+    const nextWeekDate = getToday();
     // Parse currentWeek's startDate to prevent resetting back to today in tests
     const currentStartDate = new Date(currentWeek.startDate);
     nextWeekDate.setTime(currentStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -743,7 +740,7 @@ export function useHabitState() {
     await AsyncStorage.removeItem(STORAGE_KEYS.SETTLED_WEEK_SNAPSHOT);
     await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SETTLED_WEEK);
 
-    const freshWeek = createInitialWeekData(new Date());
+    const freshWeek = createInitialWeekData(getToday());
     setCurrentWeek(freshWeek);
     setHistory([]);
     setSimulatedDayState(getRealDayOfWeek());

@@ -39,8 +39,9 @@
       "reactCompiler": true
     },
     "extra": {
-      "supabaseUrl": "https://your-project.supabase.co",
-      "supabaseAnonKey": "your-anon-key"
+      "supabaseUrl": "https://oanttaxtqsxaszbdqxbq.supabase.co",
+      "supabaseAnonKey": "sb_publishable_aMbi-onE5wnYrqKuDzRhZg_g0SXhhdv",
+      "simulatedDate": ""
     }
   }
 }
