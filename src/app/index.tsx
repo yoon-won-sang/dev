@@ -22,6 +22,7 @@ import {
   Recycle,
   Shirt,
   Smile,
+  Star,
   Users,
   UtensilsCrossed,
 } from "lucide-react-native";
@@ -851,26 +852,26 @@ export default function HabitChecklistScreen() {
                     ? "이번 주 정산이 완료되었어요! 🎉"
                     : "오늘도 성실하게! 🌱"}
               </ThemedText>
-              <ThemedText type="subtitle" style={styles.profileName}>
-                {selectedChildId
-                  ? `${children.find((c) => c.id === selectedChildId)?.display_name || "자녀"}의 습관기록`
-                  : isReadOnly
-                    ? "최종결과 확인 🔒"
-                    : "지우의 습관기록"}
-              </ThemedText>
-            </View>
-          </View>
-
-          {/* Score Display Row */}
-          <View style={styles.scoreRow}>
-            <View
-              style={[
-                styles.badgeContainer,
-                { backgroundColor: theme.backgroundElement },
-              ]}
-            >
-              <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
-              <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
+              <View style={styles.profileNameRow}>
+                <ThemedText type="subtitle" style={styles.profileName}>
+                  {selectedChildId
+                    ? `${children.find((c) => c.id === selectedChildId)?.display_name || "자녀"}의 습관기록`
+                    : isReadOnly
+                      ? "최종결과 확인 🔒"
+                      : `${user?.displayName || "사용자"}의 습관기록`}
+                </ThemedText>
+                <View
+                  style={[
+                    styles.badgeContainer,
+                    { backgroundColor: theme.backgroundElement },
+                  ]}
+                >
+                  <Star size={14} color="#F59E0B" strokeWidth={2} />
+                  <ThemedText style={styles.badgeText}>
+                    {childScore}점
+                  </ThemedText>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -1440,12 +1441,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginVertical: Spacing.three,
   },
-  scoreRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginBottom: Spacing.two,
-  },
   actionRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -1456,6 +1451,12 @@ const styles = StyleSheet.create({
   greetingText: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  profileNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
+    flexWrap: "wrap",
   },
   profileName: {
     fontSize: 20,
@@ -1471,10 +1472,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  badgeEmoji: {
-    fontSize: 14,
-    marginRight: 4,
   },
   badgeText: {
     fontSize: 14,
