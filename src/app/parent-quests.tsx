@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_TASKS, useHabitState } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
 import { useFocusEffect } from "expo-router";
+import { LogOut, PenSquare, Trash2, Users } from "lucide-react-native";
 import React from "react";
 import {
   Alert,
@@ -123,16 +124,28 @@ export default function ParentQuestsScreen() {
 
   const handleAddTask = () => {
     if (isReadOnly) {
-      Alert.alert("알림", "자녀의 데이터는 읽기 전용입니다.");
+      if (Platform.OS === "web") {
+        alert("자녀의 데이터는 읽기 전용입니다.");
+      } else {
+        Alert.alert("알림", "자녀의 데이터는 읽기 전용입니다.");
+      }
       return;
     }
     if (!newTaskName.trim()) {
-      Alert.alert("입력 오류", "퀘스트 이름을 입력해 주세요!");
+      if (Platform.OS === "web") {
+        alert("퀘스트 이름을 입력해 주세요!");
+      } else {
+        Alert.alert("입력 오류", "퀘스트 이름을 입력해 주세요!");
+      }
       return;
     }
     const points = parseInt(newTaskPoints, 10);
     if (isNaN(points) || points < 1 || points > 10) {
-      Alert.alert("입력 오류", "점수는 1~10 사이로 입력해 주세요!");
+      if (Platform.OS === "web") {
+        alert("점수는 1~10 사이로 입력해 주세요!");
+      } else {
+        Alert.alert("입력 오류", "점수는 1~10 사이로 입력해 주세요!");
+      }
       return;
     }
 
@@ -143,12 +156,20 @@ export default function ParentQuestsScreen() {
     setNewTaskPoints("5");
     // Don't call refreshData() here as it would reload the settled week
     // The state is already updated locally
-    Alert.alert("완료", "퀘스트가 추가되었습니다!");
+    if (Platform.OS === "web") {
+      alert("퀘스트가 추가되었습니다!");
+    } else {
+      Alert.alert("완료", "퀘스트가 추가되었습니다!");
+    }
   };
 
   const handleDeleteTask = (taskId: string, taskName: string) => {
     if (isReadOnly) {
-      Alert.alert("알림", "자녀의 데이터는 읽기 전용입니다.");
+      if (Platform.OS === "web") {
+        alert("자녀의 데이터는 읽기 전용입니다.");
+      } else {
+        Alert.alert("알림", "자녀의 데이터는 읽기 전용입니다.");
+      }
       return;
     }
     if (Platform.OS === "web") {
@@ -173,7 +194,11 @@ export default function ParentQuestsScreen() {
 
   const handleStartEdit = (task: any) => {
     if (isReadOnly) {
-      Alert.alert("알림", "자녀의 데이터는 읽기 전용입니다.");
+      if (Platform.OS === "web") {
+        alert("자녀의 데이터는 읽기 전용입니다.");
+      } else {
+        Alert.alert("알림", "자녀의 데이터는 읽기 전용입니다.");
+      }
       return;
     }
     setEditingTaskId(task.id);
@@ -183,12 +208,20 @@ export default function ParentQuestsScreen() {
 
   const handleSaveEdit = async () => {
     if (!editingName.trim()) {
-      Alert.alert("입력 오류", "퀘스트 이름을 입력해 주세요!");
+      if (Platform.OS === "web") {
+        alert("퀘스트 이름을 입력해 주세요!");
+      } else {
+        Alert.alert("입력 오류", "퀘스트 이름을 입력해 주세요!");
+      }
       return;
     }
     const points = parseInt(editingPoints, 10);
     if (isNaN(points) || points < 1 || points > 10) {
-      Alert.alert("입력 오류", "점수는 1~10 사이로 입력해 주세요!");
+      if (Platform.OS === "web") {
+        alert("점수는 1~10 사이로 입력해 주세요!");
+      } else {
+        Alert.alert("입력 오류", "점수는 1~10 사이로 입력해 주세요!");
+      }
       return;
     }
 
@@ -196,7 +229,11 @@ export default function ParentQuestsScreen() {
     setEditingTaskId(null);
     // Don't call refreshData() here as it would reload the settled week
     // The state is already updated locally
-    Alert.alert("완료", "퀘스트가 수정되었습니다!");
+    if (Platform.OS === "web") {
+      alert("퀘스트가 수정되었습니다!");
+    } else {
+      Alert.alert("완료", "퀘스트가 수정되었습니다!");
+    }
   };
 
   // Show child selector modal
@@ -341,6 +378,10 @@ export default function ParentQuestsScreen() {
   ];
   const specialTasks = allTasks.filter((task) => task.category === "특별");
 
+  // Determine if a task is a built-in default task (not editable/deletable)
+  const isDefaultTask = (taskId: string) =>
+    DEFAULT_QUESTS.some((defaultTask) => defaultTask.id === taskId);
+
   // Group by selected category
   const filteredTasks =
     selectedCategory === "특별"
@@ -378,8 +419,9 @@ export default function ParentQuestsScreen() {
                     { opacity: pressed ? 0.8 : 1 },
                   ]}
                 >
+                  <Users size={16} color="#FFFFFF" strokeWidth={2} />
                   <ThemedText style={styles.childSelectorBtnText}>
-                    👨‍👩‍👧‍👦 자녀 선택
+                    자녀 선택
                   </ThemedText>
                 </Pressable>
               )}
@@ -390,6 +432,7 @@ export default function ParentQuestsScreen() {
                   { opacity: pressed ? 0.7 : 1 },
                 ]}
               >
+                <LogOut size={16} color="#FFFFFF" strokeWidth={2} />
                 <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
               </Pressable>
             </View>
@@ -471,9 +514,7 @@ export default function ParentQuestsScreen() {
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <ThemedText style={styles.addButtonText}>
-                ➕ 퀘스트 추가
-              </ThemedText>
+              <ThemedText style={styles.addButtonText}>퀘스트 추가</ThemedText>
             </Pressable>
           </ThemedView>
 
@@ -608,17 +649,17 @@ export default function ParentQuestsScreen() {
                           onPress={() => handleStartEdit(task)}
                           style={styles.editButton}
                         >
-                          <ThemedText style={styles.editButtonText}>
-                            ✏️
-                          </ThemedText>
+                          <PenSquare
+                            size={16}
+                            color="#6366F1"
+                            strokeWidth={2}
+                          />
                         </Pressable>
                         <Pressable
                           onPress={() => handleDeleteTask(task.id, task.name)}
                           style={styles.deleteButton}
                         >
-                          <ThemedText style={styles.deleteButtonText}>
-                            🗑️
-                          </ThemedText>
+                          <Trash2 size={16} color="#EF4444" strokeWidth={2} />
                         </Pressable>
                       </View>
                     </>
@@ -672,6 +713,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   childSelectorBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: "#6366F1",
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -683,6 +727,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,

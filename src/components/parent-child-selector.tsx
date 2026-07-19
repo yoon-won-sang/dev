@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useHabitState } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
 import { supabase } from "@/lib/supabase";
+import { Users } from "lucide-react-native";
 import React from "react";
 import {
   Alert,
@@ -364,7 +365,7 @@ export function ParentChildSelector({
         {/* Children List */}
         {filteredChildren.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyEmoji}>👨‍👩‍👧‍👦</ThemedText>
+            <Users size={48} color={theme.textSecondary} strokeWidth={1.5} />
             <ThemedText style={styles.emptyText}>
               {searchQuery
                 ? "검색 결과가 없습니다."

@@ -10,6 +10,21 @@ import {
 } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
 import { useFocusEffect } from "expo-router";
+import {
+  Backpack,
+  Bath,
+  BedDouble,
+  Footprints,
+  Handshake,
+  Lightbulb,
+  LogOut,
+  Moon,
+  Recycle,
+  Shirt,
+  Smile,
+  Users,
+  UtensilsCrossed,
+} from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import {
   Alert,
@@ -23,18 +38,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Map icons to tasks for rich visual feedback
-const TASK_ICONS: { [key: string]: string } = {
-  bed_making: "🛏️",
-  bag_tidying: "🎒",
-  shoes_tidying: "👟",
-  clothes_organizing: "👕",
-  dish_prep: "🍽️",
-  bathroom_drying: "🚿",
-  trash_emptying: "♻️",
-  emotion_control: "😇",
-  greeting_politely: "🙇",
-  sleep_early: "😴",
+// Map icons to tasks for rich visual feedback - using Lucide icons
+const TASK_ICONS: { [key: string]: React.ReactNode } = {
+  bed_making: <BedDouble size={20} color="#3B82F6" strokeWidth={2} />,
+  bag_tidying: <Backpack size={20} color="#10B981" strokeWidth={2} />,
+  shoes_tidying: <Footprints size={20} color="#8B5CF6" strokeWidth={2} />,
+  clothes_organizing: <Shirt size={20} color="#EC4899" strokeWidth={2} />,
+  dish_prep: <UtensilsCrossed size={20} color="#F59E0B" strokeWidth={2} />,
+  bathroom_drying: <Bath size={20} color="#3B82F6" strokeWidth={2} />,
+  trash_emptying: <Recycle size={20} color="#10B981" strokeWidth={2} />,
+  emotion_control: <Smile size={20} color="#8B5CF6" strokeWidth={2} />,
+  greeting_politely: <Handshake size={20} color="#EC4899" strokeWidth={2} />,
+  sleep_early: <Moon size={20} color="#6366F1" strokeWidth={2} />,
+};
+
+// Instagram-style gradient colors
+const GRADIENT_COLORS = {
+  primary: ["#833AB4", "#FD1D1D"] as const,
+  secondary: ["#F59E0B", "#EC4899"] as const,
+  success: ["#10B981", "#3B82F6"] as const,
 };
 
 // Scoring criteria per task from the official score table
@@ -659,7 +681,7 @@ export default function HabitChecklistScreen() {
                   themeColor="textSecondary"
                   style={styles.greetingText}
                 >
-                  👨👩 부모 모드
+                  부모 모드
                 </ThemedText>
                 <ThemedText type="subtitle" style={styles.profileName}>
                   자녀 선택이 필요합니다
@@ -686,7 +708,7 @@ export default function HabitChecklistScreen() {
                 ]}
               >
                 <ThemedText style={styles.childSelectorBtnText}>
-                  👨👩 자녀 선택
+                  자녀 선택
                 </ThemedText>
               </Pressable>
             </ThemedView>
@@ -824,7 +846,7 @@ export default function HabitChecklistScreen() {
                 style={styles.greetingText}
               >
                 {selectedChildId
-                  ? "👨👩 자녀 모드"
+                  ? "자녀 모드"
                   : isReadOnly
                     ? "이번 주 정산이 완료되었어요! 🎉"
                     : "오늘도 성실하게! 🌱"}
@@ -849,8 +871,9 @@ export default function HabitChecklistScreen() {
                   { opacity: pressed ? 0.8 : 1 },
                 ]}
               >
+                <Users size={16} color="#FFFFFF" strokeWidth={2} />
                 <ThemedText style={styles.childSelectorBtnText}>
-                  👨‍👩‍👧‍👦 자녀 선택
+                  자녀 선택
                 </ThemedText>
               </Pressable>
             )}
@@ -870,6 +893,7 @@ export default function HabitChecklistScreen() {
                 { opacity: pressed ? 0.7 : 1 },
               ]}
             >
+              <LogOut size={16} color="#FFFFFF" strokeWidth={2} />
               <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
             </Pressable>
           </View>
@@ -891,7 +915,7 @@ export default function HabitChecklistScreen() {
           {/* 오늘의 속담 패널 - 1분마다 자동 변경 */}
           <ThemedView type="backgroundElement" style={styles.proverbCard}>
             <View style={styles.proverbIconRow}>
-              <ThemedText style={styles.proverbIcon}>💡</ThemedText>
+              <Lightbulb size={18} color="#F59E0B" strokeWidth={2} />
               <ThemedText
                 themeColor="textSecondary"
                 style={styles.proverbLabel}
@@ -1064,7 +1088,7 @@ export default function HabitChecklistScreen() {
                   style={styles.listContainer}
                 >
                   {list.map((task, idx) => {
-                    const icon = TASK_ICONS[task.id] || "✨";
+                    const icon = TASK_ICONS[task.id];
                     const pointsText = `+${task.points}점`;
 
                     return (
@@ -1092,9 +1116,11 @@ export default function HabitChecklistScreen() {
                               { backgroundColor: theme.backgroundSelected },
                             ]}
                           >
-                            <ThemedText style={styles.taskIconText}>
-                              {icon}
-                            </ThemedText>
+                            {icon || (
+                              <ThemedText style={styles.taskIconText}>
+                                ✨
+                              </ThemedText>
+                            )}
                           </View>
                           <View style={styles.taskDetails}>
                             <ThemedText
@@ -1445,6 +1471,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   childSelectorBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: "#6366F1",
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -1456,6 +1485,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1553,9 +1585,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     marginBottom: Spacing.two,
-  },
-  proverbIcon: {
-    fontSize: 18,
   },
   proverbLabel: {
     fontSize: 12,

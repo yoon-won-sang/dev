@@ -5,6 +5,7 @@ import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
 import { useAuth } from "@/hooks/use-auth";
 import { DayOfWeek, useHabitState } from "@/hooks/use-habit-state-supabase";
 import { useTheme } from "@/hooks/use-theme";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import React from "react";
 import {
@@ -18,6 +19,32 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const DAYS_OF_WEEK: DayOfWeek[] = ["월", "화", "수", "목", "금", "토", "일"];
+
+// Instagram-style gradient colors
+const GRADIENT_COLORS = {
+  primary: ["#833AB4", "#FD1D1D"] as const,
+  secondary: ["#F59E0B", "#EC4899"] as const,
+  success: ["#10B981", "#3B82F6"] as const,
+};
+
+import {
+  Backpack,
+  Bath,
+  BedDouble,
+  Footprints,
+  Handshake,
+  Heart,
+  LogOut,
+  Moon,
+  Recycle,
+  Settings,
+  Shirt,
+  Smile,
+  Trash2,
+  Users,
+  UtensilsCrossed,
+  Zap,
+} from "lucide-react-native";
 
 // Scoring criteria per task from the official score table
 const SCORE_CRITERIA: {
@@ -39,7 +66,7 @@ const SCORE_CRITERIA: {
     rejected: "방바닥에 방치",
   },
   bathroom_drying: {
-    full: "닦고 수건은 빨래통에 넣기",
+    full: "닙고 수건은 빨래통에 넣기",
     partial: "물기는 닦음, 수건 바닥에",
     rejected: "물기가 그대로 있음",
   },
@@ -73,6 +100,20 @@ const SCORE_CRITERIA: {
     partial: "12시 전후",
     rejected: "12시 이후 활동",
   },
+};
+
+// Map icons to tasks for rich visual feedback - using Lucide icons
+const TASK_ICONS: { [key: string]: React.ReactNode } = {
+  bed_making: <BedDouble size={18} color="#3B82F6" strokeWidth={2} />,
+  bag_tidying: <Backpack size={18} color="#10B981" strokeWidth={2} />,
+  shoes_tidying: <Footprints size={18} color="#8B5CF6" strokeWidth={2} />,
+  clothes_organizing: <Shirt size={18} color="#EC4899" strokeWidth={2} />,
+  dish_prep: <UtensilsCrossed size={18} color="#F59E0B" strokeWidth={2} />,
+  bathroom_drying: <Bath size={18} color="#3B82F6" strokeWidth={2} />,
+  trash_emptying: <Recycle size={18} color="#10B981" strokeWidth={2} />,
+  emotion_control: <Smile size={18} color="#8B5CF6" strokeWidth={2} />,
+  greeting_politely: <Handshake size={18} color="#EC4899" strokeWidth={2} />,
+  sleep_early: <Moon size={18} color="#6366F1" strokeWidth={2} />,
 };
 
 const GRADE_TIERS = [
@@ -314,12 +355,12 @@ export default function ParentAdminScreen() {
                 themeColor="textSecondary"
                 style={styles.greetingText}
               >
-                {selectedChildId ? "자녀 검수&정산" : "🤝사랑하는 지우"}
+                {selectedChildId ? "자녀 검수&정산" : "사랑하는 지우"}
               </ThemedText>
               <ThemedText type="subtitle" style={styles.profileName}>
                 {selectedChildId
                   ? `${children.find((c) => c.id === selectedChildId)?.display_name || "자녀"}의 검수대기`
-                  : "💰용돈 정산소"}
+                  : "용돈 정산소"}
               </ThemedText>
             </View>
             <View
@@ -343,8 +384,9 @@ export default function ParentAdminScreen() {
                   { opacity: pressed ? 0.8 : 1 },
                 ]}
               >
+                <Users size={16} color="#FFFFFF" strokeWidth={2} />
                 <ThemedText style={styles.childSelectorBtnText}>
-                  👨‍👩‍👧‍👦 자녀 선택
+                  자녀 선택
                 </ThemedText>
               </Pressable>
             )}
@@ -355,6 +397,7 @@ export default function ParentAdminScreen() {
                 { opacity: pressed ? 0.7 : 1 },
               ]}
             >
+              <LogOut size={16} color="#FFFFFF" strokeWidth={2} />
               <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
             </Pressable>
           </View>
@@ -385,14 +428,23 @@ export default function ParentAdminScreen() {
                 onPress={handleApproveAll}
                 style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
               >
-                <ThemedText style={styles.approveAllText}>모두 승인</ThemedText>
+                <LinearGradient
+                  colors={GRADIENT_COLORS.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.approveAllGradientBtn}
+                >
+                  <ThemedText style={styles.approveAllText}>
+                    모두 승인
+                  </ThemedText>
+                </LinearGradient>
               </Pressable>
             )}
           </View>
 
           {pendingInbox.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.emptyInbox}>
-              <ThemedText style={styles.emptyEmoji}>☕</ThemedText>
+              <Heart size={28} color="#6366F1" strokeWidth={2} />
               <ThemedText style={styles.emptyText}>
                 검수 대기 중인 습관이 없습니다!
               </ThemedText>
@@ -744,7 +796,7 @@ export default function ParentAdminScreen() {
           )}
 
           <ThemedView type="backgroundElement" style={styles.sandboxCard}>
-            <ThemedText style={styles.sandboxTitle}>⚙️ 운영자</ThemedText>
+            <ThemedText style={styles.sandboxTitle}>운영자</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.sandboxSub}>
               요일별 기록과 일요일 자정 정산 로직이 정상 작동하는지 테스트하기
               위해 강제로 상태를 조작할 수 있습니다.
@@ -816,9 +868,8 @@ export default function ParentAdminScreen() {
                   { opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <ThemedText style={styles.sandboxBtnText}>
-                  ⚡ 주간 정산
-                </ThemedText>
+                <Zap size={16} color="#FFFFFF" strokeWidth={2} />
+                <ThemedText style={styles.sandboxBtnText}>주간 정산</ThemedText>
               </Pressable>
 
               {/* Restore settled week for re-approval */}
@@ -861,8 +912,9 @@ export default function ParentAdminScreen() {
                   { opacity: pressed ? 0.8 : 1 },
                 ]}
               >
+                <Settings size={16} color="#FFFFFF" strokeWidth={2} />
                 <ThemedText style={styles.sandboxBtnText}>
-                  🔄 정산취소 & 재승인
+                  정산취소 & 재승인
                 </ThemedText>
               </Pressable>
             </View>
@@ -879,8 +931,9 @@ export default function ParentAdminScreen() {
                 { opacity: pressed ? 0.8 : 1 },
               ]}
             >
+              <Trash2 size={16} color="#EF4444" strokeWidth={2} />
               <ThemedText style={[styles.sandboxBtnText, { color: "#EF4444" }]}>
-                🗑️ 전체데이터 초기화
+                전체데이터 초기화
               </ThemedText>
             </Pressable>
           </ThemedView>
@@ -955,6 +1008,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   childSelectorBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: "#6366F1",
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
@@ -966,6 +1022,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1010,7 +1069,14 @@ const styles = StyleSheet.create({
   approveAllText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#6366F1",
+    color: "#FFFFFF",
+  },
+  approveAllGradientBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyInbox: {
     borderRadius: 20,

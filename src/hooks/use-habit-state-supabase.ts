@@ -1115,7 +1115,8 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const deleteSpecialTask = async (day: DayOfWeek, taskId: string) => {
@@ -1129,7 +1130,8 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const updateSpecialTask = async (
@@ -1152,7 +1154,8 @@ export function useHabitState() {
 
     const updatedWeek = { ...currentWeek, days: updatedDays };
     setCurrentWeek(updatedWeek);
-    await saveWeekToSupabase(updatedWeek);
+    const targetUserId = selectedChildId || undefined;
+    await saveWeekToSupabase(updatedWeek, undefined, targetUserId);
   };
 
   const forceWeeklyReset = async () => {
@@ -1265,30 +1268,44 @@ export function useHabitState() {
     try {
       isClearingDataRef.current = true;
 
-      // Delete all weeks
-      const { error: weeksError } = await supabase
-        .from("weeks")
-        .delete()
-        .eq("user_id", user.id);
-
-      if (weeksError) {
-        console.error("Error deleting weeks:", weeksError);
-        alert("주간 데이터 삭제 중 오류가 발생했습니다.");
-        isClearingDataRef.current = false;
-        return;
+      // Determine which user(s) to clear: if viewing child data, also clear child's data
+      const targetUserIds: string[] = [user.id];
+      if (selectedChildId && !targetUserIds.includes(selectedChildId)) {
+        targetUserIds.push(selectedChildId);
       }
 
-      // Delete all archives
-      const { error: archiveError } = await supabase
-        .from("archive")
-        .delete()
-        .eq("user_id", user.id);
+      // Delete all weeks for all target users
+      for (const targetUserId of targetUserIds) {
+        const { error: weeksError } = await supabase
+          .from("weeks")
+          .delete()
+          .eq("user_id", targetUserId);
 
-      if (archiveError) {
-        console.error("Error deleting archives:", archiveError);
-        alert("정산 기록 삭제 중 오류가 발생했습니다.");
-        isClearingDataRef.current = false;
-        return;
+        if (weeksError) {
+          console.error(
+            `Error deleting weeks for user ${targetUserId}:`,
+            weeksError,
+          );
+          alert("주간 데이터 삭제 중 오류가 발생했습니다.");
+          isClearingDataRef.current = false;
+          return;
+        }
+
+        // Delete all archives for this user
+        const { error: archiveError } = await supabase
+          .from("archive")
+          .delete()
+          .eq("user_id", targetUserId);
+
+        if (archiveError) {
+          console.error(
+            `Error deleting archives for user ${targetUserId}:`,
+            archiveError,
+          );
+          alert("정산 기록 삭제 중 오류가 발생했습니다.");
+          isClearingDataRef.current = false;
+          return;
+        }
       }
 
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -1303,6 +1320,21 @@ export function useHabitState() {
       setIsLoading(false);
       isLoadingRef.current = false;
       isClearingDataRef.current = false;
+
+      // Save fresh week for BOTH parent and child if viewing child data
+      // This ensures when the child's tab refreshes, it finds a fresh week instead of nothing
+      await saveWeekToSupabase(freshWeek, false, user.id);
+      if (selectedChildId) {
+        await saveWeekToSupabase(freshWeek, false, selectedChildId);
+      }
+
+      // Reload child data from DB to ensure the view shows the fresh week
+      // This is needed because the parent tab was showing child data before clearing
+      if (selectedChildId) {
+        await loadChildData(selectedChildId, true);
+      } else {
+        await loadData(true);
+      }
 
       console.log("All data cleared successfully");
       alert("모든 데이터가 초기화되었습니다.");
