@@ -993,8 +993,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: Spacing.four,
     width: "100%",
-    maxHeight: "80%",
+    maxHeight: "95%",
     maxWidth: 500,
+    flex: 1,
+    flexDirection: "column",
   },
   modalHeader: {
     flexDirection: "row",

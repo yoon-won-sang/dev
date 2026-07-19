@@ -861,6 +861,19 @@ export default function HabitChecklistScreen() {
             </View>
           </View>
 
+          {/* Score Display Row */}
+          <View style={styles.scoreRow}>
+            <View
+              style={[
+                styles.badgeContainer,
+                { backgroundColor: theme.backgroundElement },
+              ]}
+            >
+              <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
+              <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
+            </View>
+          </View>
+
           {/* Action Buttons Row */}
           <View style={styles.actionRow}>
             {user?.role === "parent" && (
@@ -877,15 +890,6 @@ export default function HabitChecklistScreen() {
                 </ThemedText>
               </Pressable>
             )}
-            <View
-              style={[
-                styles.badgeContainer,
-                { backgroundColor: theme.backgroundElement },
-              ]}
-            >
-              <ThemedText style={styles.badgeEmoji}>⭐</ThemedText>
-              <ThemedText style={styles.badgeText}>{childScore}점</ThemedText>
-            </View>
             <Pressable
               onPress={handleLogout}
               style={({ pressed }) => [
@@ -1435,6 +1439,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginVertical: Spacing.three,
+  },
+  scoreRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginBottom: Spacing.two,
   },
   actionRow: {
     flexDirection: "row",

@@ -388,12 +388,9 @@ export function ParentChildSelector({
         <View style={styles.modalOverlay}>
           <View
             style={[
+              styles.modalContent,
               {
                 backgroundColor: theme.background,
-                borderRadius: 16,
-                padding: Spacing.five,
-                width: "100%",
-                maxHeight: "80%",
               },
             ]}
           >
@@ -404,28 +401,30 @@ export function ParentChildSelector({
               추가할 자식을 선택하세요
             </ThemedText>
 
-            {availableChildren.length === 0 ? (
-              <View style={styles.emptyModalContainer}>
-                <ThemedText
-                  style={[
-                    {
-                      fontSize: 15,
-                      fontWeight: "600",
-                      color: theme.textSecondary,
-                    },
-                  ]}
-                >
-                  추가할 수 있는 자식이 없습니다.
-                </ThemedText>
-              </View>
-            ) : (
-              <FlatList
-                data={availableChildren}
-                renderItem={renderAvailableChildItem}
-                keyExtractor={(item) => item.id}
-                style={styles.modalList}
-              />
-            )}
+            <View style={styles.modalListContainer}>
+              {availableChildren.length === 0 ? (
+                <View style={styles.emptyModalContainer}>
+                  <ThemedText
+                    style={[
+                      {
+                        fontSize: 12,
+                        fontWeight: "600",
+                        color: theme.textSecondary,
+                      },
+                    ]}
+                  >
+                    추가할 수 있는 자식이 없습니다.
+                  </ThemedText>
+                </View>
+              ) : (
+                <FlatList
+                  data={availableChildren}
+                  renderItem={renderAvailableChildItem}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={styles.modalListContent}
+                />
+              )}
+            </View>
 
             <Pressable
               onPress={() => setShowAddModal(false)}
@@ -454,14 +453,14 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.three,
   },
   greetingText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     marginBottom: 4,
   },
   title: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
-    lineHeight: 30,
+    lineHeight: 22,
   },
   actionContainer: {
     flexDirection: "row",
@@ -470,10 +469,10 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    height: 44,
+    height: 36,
     borderRadius: 12,
     paddingHorizontal: Spacing.three,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     borderWidth: 1,
   },
@@ -486,25 +485,25 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "700",
   },
   listContent: {
-    gap: Spacing.two,
+    gap: Spacing.one,
   },
   childCard: {
-    borderRadius: 16,
-    padding: Spacing.three,
+    borderRadius: 12,
+    padding: Spacing.two,
     borderWidth: 1,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
-        shadowRadius: 6,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 1,
       },
     }),
   },
@@ -517,38 +516,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   childName: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 1,
   },
   childEmail: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: "500",
   },
   childActions: {
     flexDirection: "row",
-    gap: Spacing.two,
+    gap: Spacing.one,
   },
   selectButton: {
     backgroundColor: "#6366F1",
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
     borderRadius: 8,
   },
   selectButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
   },
   removeButton: {
     backgroundColor: "#EF4444",
-    paddingHorizontal: Spacing.three,
+    paddingHorizontal: Spacing.two,
     paddingVertical: Spacing.two,
     borderRadius: 8,
   },
   removeButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "700",
   },
   emptyContainer: {
@@ -561,10 +560,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.three,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "600",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 18,
   },
   modalOverlay: {
     position: "absolute",
@@ -575,19 +574,29 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    padding: Spacing.four,
+    padding: Spacing.two,
+  },
+  modalContent: {
+    borderRadius: 16,
+    padding: Spacing.three,
+    width: "100%",
+    height: "95%",
+    flexDirection: "column",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   modalSubtitle: {
-    fontSize: 14,
-    marginBottom: Spacing.four,
+    fontSize: 12,
+    marginBottom: Spacing.one,
   },
-  modalList: {
-    maxHeight: 400,
+  modalListContainer: {
+    flex: 1,
+  },
+  modalListContent: {
+    gap: Spacing.two,
   },
   emptyModalContainer: {
     paddingVertical: Spacing.six * 2,
@@ -596,13 +605,13 @@ const styles = StyleSheet.create({
   closeButton: {
     backgroundColor: "#6366F1",
     borderRadius: 12,
-    paddingVertical: Spacing.three,
+    paddingVertical: Spacing.two,
     alignItems: "center",
-    marginTop: Spacing.four,
+    marginTop: Spacing.two,
   },
   closeButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
 });
