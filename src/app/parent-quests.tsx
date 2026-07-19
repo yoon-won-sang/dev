@@ -410,32 +410,34 @@ export default function ParentQuestsScreen() {
                   : "퀘스트 관리"}
               </ThemedText>
             </View>
-            <View style={styles.headerRight}>
-              {user?.role === "parent" && (
-                <Pressable
-                  onPress={() => setShowChildSelector(true)}
-                  style={({ pressed }) => [
-                    styles.childSelectorBtn,
-                    { opacity: pressed ? 0.8 : 1 },
-                  ]}
-                >
-                  <Users size={16} color="#FFFFFF" strokeWidth={2} />
-                  <ThemedText style={styles.childSelectorBtnText}>
-                    자녀 선택
-                  </ThemedText>
-                </Pressable>
-              )}
+          </View>
+
+          {/* Action Buttons Row */}
+          <View style={styles.actionButtonRow}>
+            {user?.role === "parent" && (
               <Pressable
-                onPress={handleLogout}
+                onPress={() => setShowChildSelector(true)}
                 style={({ pressed }) => [
-                  styles.logoutBtn,
-                  { opacity: pressed ? 0.7 : 1 },
+                  styles.childSelectorBtn,
+                  { opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <LogOut size={16} color="#FFFFFF" strokeWidth={2} />
-                <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
+                <Users size={16} color="#FFFFFF" strokeWidth={2} />
+                <ThemedText style={styles.childSelectorBtnText}>
+                  자녀 선택
+                </ThemedText>
               </Pressable>
-            </View>
+            )}
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.logoutBtn,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <LogOut size={16} color="#FFFFFF" strokeWidth={2} />
+              <ThemedText style={styles.logoutBtnText}>로그아웃</ThemedText>
+            </Pressable>
           </View>
 
           {/* Add New Quest Card */}
@@ -692,9 +694,6 @@ const styles = StyleSheet.create({
     paddingBottom: BottomTabInset + Spacing.five,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginVertical: Spacing.three,
   },
   greetingText: {
@@ -707,10 +706,11 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     marginTop: 2,
   },
-  headerRight: {
+  actionButtonRow: {
     flexDirection: "row",
-    alignItems: "center",
+    justifyContent: "flex-end",
     gap: Spacing.two,
+    marginBottom: Spacing.four,
   },
   childSelectorBtn: {
     flexDirection: "row",

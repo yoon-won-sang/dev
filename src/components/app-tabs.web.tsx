@@ -23,16 +23,16 @@ export default function AppTabs() {
       <TabList asChild>
         <CustomTabList>
           <TabTrigger name="home" href="/" asChild>
-            <TabButton>오늘의 습관</TabButton>
+            <TabButton>습관</TabButton>
           </TabTrigger>
           {isAdmin && (
             <TabTrigger name="explore" href="/explore" asChild>
-              <TabButton>검수 & 정산</TabButton>
+              <TabButton>검수</TabButton>
             </TabTrigger>
           )}
           {isAdmin && (
             <TabTrigger name="parent-quests" href="/parent-quests" asChild>
-              <TabButton>퀘스트 관리</TabButton>
+              <TabButton>관리</TabButton>
             </TabTrigger>
           )}
         </CustomTabList>

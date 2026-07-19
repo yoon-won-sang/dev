@@ -16,7 +16,7 @@ export default function AppTabs() {
       labelStyle={{ selected: { color: colors.text } }}
     >
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>오늘의 습관</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>습관</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require("@/assets/images/tabIcons/home.png")}
           renderingMode="template"
@@ -25,7 +25,7 @@ export default function AppTabs() {
 
       {isAdmin && (
         <NativeTabs.Trigger name="explore">
-          <NativeTabs.Trigger.Label>검수 & 정산</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>검수</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon
             src={require("@/assets/images/tabIcons/explore.png")}
             renderingMode="template"
@@ -35,7 +35,7 @@ export default function AppTabs() {
 
       {isAdmin && (
         <NativeTabs.Trigger name="parent-quests">
-          <NativeTabs.Trigger.Label>퀘스트 관리</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>관리</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon
             src={require("@/assets/images/tabIcons/explore.png")}
             renderingMode="template"
