@@ -30,6 +30,7 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [isSignup, setIsSignup] = useState(false);
   const [role, setRole] = useState<"child" | "parent">("child");
+  const [displayName, setDisplayName] = useState("");
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -40,12 +41,18 @@ export default function LoginScreen() {
       return;
     }
 
+    if (isSignup && !displayName.trim()) {
+      setError("이름을 입력해주세요.");
+      return;
+    }
+
     let success: boolean;
     if (isSignup) {
-      success = await signup(email, password, role);
+      success = await signup(email, password, role, displayName.trim());
       if (success) {
         setError("회원가입 완료! 로그인해주세요.");
         setIsSignup(false);
+        setDisplayName("");
       }
     } else {
       success = await login(email, password);
@@ -350,53 +357,80 @@ export default function LoginScreen() {
               ) : null}
 
               {isSignup && (
-                <View style={styles.roleSelector}>
-                  <ThemedText style={styles.roleLabel}>역할 선택:</ThemedText>
-                  <View style={styles.roleButtons}>
-                    <Pressable
-                      onPress={() => setRole("child")}
-                      style={[
-                        styles.roleButton,
-                        {
-                          backgroundColor:
-                            role === "child"
-                              ? "#6366F1"
-                              : theme.backgroundSelected,
-                        },
-                      ]}
-                    >
-                      <ThemedText
+                <>
+                  <TextInput
+                    placeholder="이름"
+                    placeholderTextColor={theme.textSecondary}
+                    value={displayName}
+                    onChangeText={(text) => {
+                      setDisplayName(text);
+                      setError("");
+                    }}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    style={[
+                      styles.textInput,
+                      {
+                        color: theme.text,
+                        backgroundColor: theme.backgroundSelected,
+                        borderColor: error
+                          ? "#EF4444"
+                          : theme.backgroundSelected,
+                      },
+                    ]}
+                  />
+                  <View style={styles.roleSelector}>
+                    <ThemedText style={styles.roleLabel}>역할 선택:</ThemedText>
+                    <View style={styles.roleButtons}>
+                      <Pressable
+                        onPress={() => setRole("child")}
                         style={[
-                          styles.roleButtonText,
-                          { color: role === "child" ? "#FFFFFF" : theme.text },
+                          styles.roleButton,
+                          {
+                            backgroundColor:
+                              role === "child"
+                                ? "#6366F1"
+                                : theme.backgroundSelected,
+                          },
                         ]}
                       >
-                        아이
-                      </ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setRole("parent")}
-                      style={[
-                        styles.roleButton,
-                        {
-                          backgroundColor:
-                            role === "parent"
-                              ? "#6366F1"
-                              : theme.backgroundSelected,
-                        },
-                      ]}
-                    >
-                      <ThemedText
+                        <ThemedText
+                          style={[
+                            styles.roleButtonText,
+                            {
+                              color: role === "child" ? "#FFFFFF" : theme.text,
+                            },
+                          ]}
+                        >
+                          아이
+                        </ThemedText>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setRole("parent")}
                         style={[
-                          styles.roleButtonText,
-                          { color: role === "parent" ? "#FFFFFF" : theme.text },
+                          styles.roleButton,
+                          {
+                            backgroundColor:
+                              role === "parent"
+                                ? "#6366F1"
+                                : theme.backgroundSelected,
+                          },
                         ]}
                       >
-                        부모
-                      </ThemedText>
-                    </Pressable>
+                        <ThemedText
+                          style={[
+                            styles.roleButtonText,
+                            {
+                              color: role === "parent" ? "#FFFFFF" : theme.text,
+                            },
+                          ]}
+                        >
+                          부모
+                        </ThemedText>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
+                </>
               )}
 
               <Pressable

@@ -7,6 +7,7 @@ export interface AuthUser {
   id: string;
   role: UserRole;
   email?: string;
+  displayName?: string;
 }
 
 interface AuthContextValue {
@@ -15,7 +16,12 @@ interface AuthContextValue {
   isAdmin: boolean;
   isPasswordRecovery: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, role: UserRole) => Promise<boolean>;
+  signup: (
+    email: string,
+    password: string,
+    role: UserRole,
+    displayName?: string,
+  ) => Promise<boolean>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<boolean>;
   updatePassword: (newPassword: string) => Promise<boolean>;
@@ -40,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (session?.user) {
-        // Fetch user profile to get role
+        // Fetch user profile to get role and display name
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, display_name")
@@ -51,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: session.user.id,
           role: profile?.role || "child",
           email: session.user.email || undefined,
+          displayName: profile?.display_name || undefined,
         });
       } else {
         setUser(null);
@@ -138,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Fetch user profile
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, display_name")
         .eq("id", data.user.id)
         .maybeSingle();
 
@@ -146,31 +153,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("Profile fetch error:", profileError);
       }
 
-      // If profile doesn't exist, create it
-      if (!profile) {
-        console.log("Profile not found, creating...");
-        const { error: insertError } = await supabase.from("profiles").insert({
-          id: data.user.id,
-          role: "child",
-          display_name: data.user.email?.split("@")[0] || "사용자",
-        });
-
-        if (insertError) {
-          console.error("Profile creation error:", insertError);
-        }
-
-        setUser({
-          id: data.user.id,
-          role: "child",
-          email: data.user.email || undefined,
-        });
-      } else {
-        setUser({
-          id: data.user.id,
-          role: profile.role,
-          email: data.user.email || undefined,
-        });
-      }
+      // Profile should be created by the database trigger
+      // If it doesn't exist, the trigger may not have fired yet
+      // We'll use default values and the profile will be loaded on next login
+      setUser({
+        id: data.user.id,
+        role: profile?.role || "child",
+        email: data.user.email || undefined,
+        displayName:
+          profile?.display_name || data.user.email?.split("@")[0] || undefined,
+      });
 
       return true;
     } catch (error) {
@@ -184,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     role: UserRole,
+    displayName?: string,
   ): Promise<boolean> => {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -192,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: {
           data: {
             role,
-            display_name: email.split("@")[0],
+            display_name: displayName || email.split("@")[0],
           },
         },
       });
@@ -202,18 +195,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      // Manually create profile (in case trigger doesn't fire)
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: data.user.id,
-        role,
-        display_name: email.split("@")[0],
-      });
-
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        // Continue anyway - trigger might have created it
-      }
-
+      // Profile is automatically created by the database trigger (handle_new_user)
+      // The trigger reads role and display_name from raw_user_meta_data
+      console.log("Signup successful, profile will be created by trigger");
       return true;
     } catch (error) {
       console.error("Signup error:", error);
