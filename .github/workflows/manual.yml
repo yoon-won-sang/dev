@@ -1,0 +1,15 @@
+# .github/workflows/keep-alive.yml
+name: Keep Supabase Alive
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 매일 자정 실행
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -X GET "https://oanttaxtqsxaszbdqxbq.supabase.co/rest/v1/weeks?select=*&limit=1" \
+            -H "apikey: ${{sb_publishable_aMbi-onE5wnYrqKuDzRhZg_g0SXhhdv}}"
