@@ -12,4 +12,4 @@ jobs:
       - name: Ping Supabase
         run: |
           curl -X GET "https://oanttaxtqsxaszbdqxbq.supabase.co/rest/v1/weeks?select=*&limit=1" \
-            -H "apikey: ${{sb_publishable_aMbi-onE5wnYrqKuDzRhZg_g0SXhhdv}}"
+            -H "apikey: ${{ sb_publishable_aMbi-onE5wnYrqKuDzRhZg_g0SXhhdv }}"
