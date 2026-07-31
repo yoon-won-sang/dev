@@ -3,7 +3,7 @@ name: Supabase Keep Alive
 on:
   schedule:
     # 매주 월, 목요일 자정(UTC 기준)에 실행
-    - cron: '0 0 * * *'
+    - cron: '*/1 * * * *'
   workflow_dispatch: # 수동 실행 허용
 
 jobs:
